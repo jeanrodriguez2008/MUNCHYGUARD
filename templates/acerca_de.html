@@ -1,0 +1,158 @@
+{% extends 'layout.html' %}
+
+{% block title %}Informe Ejecutivo MunchyGuard PT{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <!-- Card Encabezado de Informe -->
+    <div class="card shadow-sm border-0 mb-4" style="background: #1a365d; border-radius: 8px;">
+        <div class="card-body p-4 text-white">
+            <span class="badge bg-success mb-2">DOCUMENTACIÓN CORPORATIVA V20</span>
+            <h2 class="fw-bold mb-1">INFORME EJECUTIVO DE PLANIFICACIÓN LOGÍSTICA</h2>
+            <p class="mb-1 text-white-50 small"><strong>Asunto:</strong> Análisis de Capacidades, Innovación Tecnológica y Escalabilidad de MunchyGuard PT (Versión 2.0 / V20)</p>
+            <p class="mb-1 text-white-50 small"><strong>Fecha:</strong> 2 de julio de 2026</p>
+            <p class="mb-0 text-warning small"><strong>Desarrollado por:</strong> Ing. Jean Rodríguez – Coordinador de Almacén de PT</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Contenido Central del Informe -->
+        <div class="col-12">
+            <div class="card shadow-sm border-0 p-4 bg-white" style="border-radius: 8px;">
+                
+                <!-- Sección 1 -->
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-info-circle-fill text-primary"></i> 1. ¿Qué es MunchyGuard PT?</h5>
+                <p class="text-secondary text-justify">
+                    <strong>MunchyGuard PT</strong>, es un ecosistema digital avanzado e inteligente de control de inventarios, trazabilidad en tiempo real y planificación de demanda (<em>Demand Planning</em>), diseñado específicamente para blindar y optimizar la cadena de suministro y la red de distribución nacional de Alimentos Munchy. Desarrollado bajo una arquitectura robusta en Python (Flask, SQLAlchemy y Jinja2), el sistema unifica los flujos de información operativa, administrativa y gerencial.
+                </p>
+                <p class="text-secondary text-justify">
+                    A diferencia de los sistemas tradicionales rígidos (como los WMS genéricos), que se limitan a registrar entradas y salidas de mercancía, MunchyGuard PT funciona como un núcleo de decisiones logísticas integrando principios matemáticos de control de stocks con trazabilidad en tiempo real basada en hardware de captura de datos (Lectores QR), y algoritmos dinámicos locales de <em>Demand Planning</em> (Planificación de Demanda).
+                </p>
+                
+                <hr class="my-4">
+
+                <!-- Sección 2 -->
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-gear-wide-connected text-primary"></i> 2. ¿Qué hace? (Alcance Operativo)</h5>
+                <p class="text-secondary">El sistema automatiza de extremo a extremo el ciclo de vida del producto terminado desde que sale de las líneas de producción interna o ingresa por devoluciones, hasta su despacho final a los canales comerciales:</p>
+                <ul class="text-secondary small ps-3">
+                    <li class="mb-2"><strong>Ingreso Inteligente y Traslados Dinámicos:</strong> Mapea el reingreso de productos adaptando el formulario según la causa. Si se define un tipo de entrada como "Producción Interna" o "Traslado entre Almacenes", el sistema autogestiona la interfaz mostrando columnas paralelas para los campos Almacén Origen (Emisor) y Almacén Destino (Receptor), bloqueando operaciones inválidas (como intentar enviar y recibir en el mismo CENDIS).</li>
+                    <li class="mb-2"><strong>Despacho y Control de Salidas:</strong> Administra las salidas por motivos de Facturación, Consignación o Traslados, descontando las existencias bajo estrictas directrices de lógica contable y operativa.</li>
+                    <li class="mb-2"><strong>Procesamiento Masivo de Datos:</strong> Permite la ingesta masiva de catálogos maestros (Almacenes, Productos, Clientes, Vendedores) mediante la importación directa de archivos de Excel (.xlsx), optimizando los tiempos de configuración del sistema en minutos.</li>
+                    <li class="mb-2"><strong>Depuración Dinámica e Histórica:</strong> Cuenta con módulos seguros de desincorporación masiva por lotes para mantener la base de datos limpia, registrando cada acción en una tabla transparente de auditoría física.</li>
+                    <li class="mb-2"><strong>Gestión de Inventarios bajo Criterio Multi-CENDIS:</strong> Monitorea de forma centralizada las existencias físicas del Almacén Central y de cada una de las sucursales del país.</li>
+                    <li class="mb-2"><strong>Control de Movimientos de Entrada y Salida:</strong> Registra ingresos, devoluciones, despachos por facturación, ajustes e ingresos por producción interna de forma automatizada.</li>
+                    <li class="mb-2"><strong>Mitigación Activa de Mermas (Gobernanza PEPS):</strong> Evalúa constantemente las fechas de vencimiento de cada lote de producto terminado para asegurar que lo primero que vence sea lo primero en despacharse.</li>
+                    <li class="mb-2"><strong>Optimización del Espacio Físico (Slotting):</strong> Previene la saturación física de los almacenes controlando el volumen de ocupación actual frente a sus capacidades topes.</li>
+                </ul>
+
+                <hr class="my-4">
+
+                <!-- Sección 3 -->
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-cpu text-primary"></i> 3. ¿Con qué cuenta? (Arquitectura de Módulos y Herramientas)</h5>
+                <p class="text-secondary">La plataforma presenta una interfaz modular limpia, rápida y de alta visibilidad, estructurada en los siguientes componentes:</p>
+                <ul class="text-secondary small ps-3">
+                    <li class="mb-2"><strong>Tablero Operativo Automatizado (Dashboard Gerencial):</strong> Cuenta con visualizaciones analíticas dinámicas potenciadas por <em>Chart.js</em> que muestran el porcentaje de ocupación física de cada CENDIS (utilizando semáforos de color: Gris para 0%, Verde hasta el 50%, Amarillo hasta el 75% y Rojo superando el 75%).</li>
+                    <li class="mb-2"><strong>Módulo de Captura QR Activo (Lectura por Pistola):</strong> Una interfaz integrada en los formularios de entrada y salida que decodifica cadenas de datos completas (Código|Descripción|Lote|Fecha Vencimiento) con solo presionar el gatillo del lector manual.</li>
+                    <li class="mb-2"><strong>Motor Analítico de Demand Planning Local:</strong> Un sub-sistema matemático que corre algoritmos avanzados de inventario directamente en el servidor sin depender de conexiones de red externas o APIs.</li>
+                    <li class="mb-2"><strong>Centro de Carga Masiva (Importación desde Excel):</strong> Herramienta logística para cargar en segundos maestros enteros de Almacenes (Códigos, Ubicaciones y Capacidades), Productos (SKUs, Descripciones), Clientes y Vendedores desde hojas de cálculo.</li>
+                    <li class="mb-2"><strong>Filtros Inteligentes Asíncronos con Buscador Custom:</strong> Desplegables rápidos en los formularios de registro que permiten escribir texto parcial (código o nombre) y autocompletan dinámicamente los campos protegiendo la velocidad operativa del receptor o despachador.</li>
+                    <li class="mb-2"><strong>Kardex Histórico con Logs de Auditoría Total:</strong> Registra detalladamente cada transacción del sistema identificando fecha, tipo de operación, motivo específico (ej. Avería, Vencido, Mal despacho), cantidades exactas, número de documento físico de referencia y el usuario responsable con Control de Acceso Basado en Roles (RBAC).</li>
+                    <li class="mb-2"><strong>Fuerza de Control de Acceso Basado en Roles (RBAC):</strong> Protege la integridad del sistema asignando perfiles con vistas segregadas:
+                        <ul class="ps-3 my-1">
+                            <li><em>Receptor:</em> Solo visualiza el módulo de entradas.</li>
+                            <li><em>Despachador:</em> Solo interactúa con el módulo de salidas/despachos.</li>
+                            <li><em>Gerencial / Consultor:</em> Accede con privilegios de lectura exclusivamente a paneles de analítica avanzada y gráficas de monitoreo.</li>
+                            <li><em>Administrador:</em> Posee control total sobre el centro de carga masiva, configuración global del sistema y gestión de usuarios.</li>
+                        </ul>
+                    </li>
+                    <li class="mb-2"><strong>Hardware Activo (Lector de Código QR / Pistola de Escaneo):</strong> Integración directa en los modales de entrada y salida mediante scripts nativos asíncronos que capturan cadenas de datos estandarizadas (Código|Descripción|Lote|DD/MM/AAAA) y autocompletan instantáneamente los campos del formulario, minimizando el error humano de transcripción.</li>
+                    <li class="mb-2"><strong>Kardex de Movimientos y Tabla de Saldos Activos:</strong> Un registro analítico e histórico inmutable que cruza cada transacción con la fecha del sistema, referencia de documento, motivo, lote y usuario responsable.</li>
+                </ul>
+
+                <hr class="my-4">
+
+                <!-- Sección 4 -->
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-lightning-charge-fill text-primary"></i> 4. ¿Qué novedad presenta? (El Factor Diferenciador V20)</h5>
+                <p class="text-secondary align-justify">
+                    La gran novedad de MunchyGuard PT V20 es su Auditoría Logística Inteligente y Predictiva Local. El sistema ha madurado de ser un software de registro a un tomador de decisiones automatizado. La plataforma extrae de manera autónoma las trazas históricas del Kardex de salidas de los últimos 90 días, calcula las salidas masivas y promedios cruzando múltiples dimensiones del negocio en tiempo real.
+                </p>
+                <div class="alert alert-primary py-2 small font-monospace mb-3">
+                    <strong>Ejemplo:</strong> Si el sistema detecta que un producto específico (por ejemplo, el SKU: BOKAS 170Grs) está siendo altamente demandado por el Top 5 de Vendedores en la zona centro y coincide con la Clasificación ABC como Artículo Clase A, el sistema altera automáticamente su propio modelo lógico y eleva el Stock de Seguridad un 30% para blindar a la empresa de un quiebre imprevisto antes de emitir la orden de carga del mes siguiente.
+                </div>
+                <p class="text-secondary">MunchyGuard PT V20 rompe los paradigmas tradicionales mediante las siguientes innovaciones:</p>
+                <ul class="text-secondary small ps-3">
+                    <li class="mb-2"><strong>Motor Local de Planificación de Demanda (Demand Planning):</strong> Prescinde de dependencias o claves API externas caóticas (como Google Gemini) mediante un algoritmo matemático predictivo local. Este motor procesa en segundos todo el histórico del Kardex cruzando consumos contra existencias.</li>
+                    <li class="mb-2"><strong>Slotting Estratégico basado en Criterio ABC (Análisis de Pareto):</strong> El sistema clasifica dinámicamente el portafolio de productos. Los artículos de Clase A (que representan el 80% de la rotación) disparan alertas visuales para ser ubicados en las zonas de mayor capacidad y facilidad de despacho, optimizando los movimientos de las cargas y operarios dentro de los Almacenes.</li>
+                    <li class="mb-2"><strong>Detección Automática de Anomalías y Seguridad Logística:</strong> Monitorea y reporta en el acto tres tipos de riesgos operativos:
+                        <ul class="ps-3 my-1">
+                            <li><em>Inventario Muerto:</em> SKUs con alta ocupación física pero cero rotación en los últimos 80 días.</li>
+                            <li><em>Micro-tendencias:</em> Comparación automatizada del consumo medio diario de los últimos 15 días frente a los 75 días anteriores; si la demanda se acelera más de un 30%, recalcula el Punto de Pedido hacia arriba de forma automática.</li>
+                            <li><em>Dependencia de Clientes:</em> Alerta si un solo cliente acapara más del 50% de las compras de un CENDIS, mitigando riesgos de sobrestock si ese cliente reduce su demanda.</li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <hr class="my-4">
+
+                <!-- Sección 5 -->
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-graph-up-arrow text-primary"></i> 5. ¿Qué bondades tiene? (Beneficios de Negocio con Ejemplos Extensos)</h5>
+                
+                <h6><strong>Bondad 1: Modelado Matemático Exacto (CMD, SS, PP, CR)</strong></h6>
+                <p class="text-secondary small">MunchyGuard PT aplica rigurosamente fórmulas de ingeniería de inventarios en lugar de basarse en intuiciones.</p>
+                <ul class="text-secondary small ps-4">
+                    <li>Consumo Medio Diario (CMD): Salidas entre 90 días.</li>
+                    <li>Stock de Seguridad (SS): Contempla el Lead Time (tiempo de entrega) promedio de planta de 3 días con desviaciones estándar para un nivel de servicio del 97%.</li>
+                    <li>Punto de Pedido (PP) y Cantidad Sugerida de Reposición (CR): Calcula las unidades exactas necesarias restando el inventario actual neto.</li>
+                </ul>
+                <div class="p-3 bg-light rounded border mb-3 small text-secondary text-justify">
+                    <strong>📝 Ejemplo:</strong> En el CENDIS BQTO, el artículo <em>Chiskesitos 145grs</em> vendió 90,000 unidades en los últimos 3 meses. El sistema calcula un CMD de 1,000 unidades diarias. El tiempo que tarda el camión de planta Mcy a Bqto es de 5 días. El sistema calcula un Stock de Seguridad (SS) de 3,000 unidades para cubrir retrasos. Por ende, el Punto de Pedido (PP) es de 8,000 unidades. Si el inventario actual en Bqto baja a 4,000 unidades, la pantalla se tornará roja y emitirá un CR (Cantidad Sugerida de Reposición) de 29,000 unidades exactas para cubrir los próximos 30 días de venta sin caer en sobrestock ni saturar la capacidad física del almacén.
+                </div>
+
+                <h6><strong>Bondad 2: Semáforo de Riesgo de Merma de Vulnerabilidad PEPS</strong></h6>
+                <p class="text-secondary small">Cruza dinámicamente los Días de Inventario Disponible contra los días que le quedan de vida útil al lote físico.</p>
+                <div class="p-3 bg-light rounded border mb-3 small text-secondary text-justify">
+                    <strong>📝 Ejemplo:</strong> El almacén de BQTO tiene 10,000 unidades en stock de un SKU cuyo consumo es de apenas 50 unidades diarias debido a baja rotación. Su DID es de 200 días (tardará más de 6 meses en agotarse). Sin embargo, el lote físico escaneado por QR indica que vence dentro de 90 días. MunchyGuard PT genera inmediatamente una Alerta Crítica de Merma, informando al Coordinador de Almacenes, que ese lote se va a perder si se queda allí, ordenando un direccionamiento estratégico (traslado inter-almacenes) a Maracay o Caracas, donde la velocidad de absorción del mercado es 5 veces mayor, salvando el costo financiero del producto.
+                </div>
+
+                <h6><strong>Bondad 3: Detección Automática de Inventario Muerto y Anomalías de Micro-tendencias</strong></h6>
+                <ul class="text-secondary small ps-3">
+                    <li class="mb-1"><strong>Inventario Muerto:</strong> Identifica productos con alta ocupación física pero cero rotación en los últimos 80 días, sugiriendo estrategias de liquidación inmediata al departamento comercial para liberar espacio.</li>
+                    <li><strong>Micro-tendencias:</strong> Compara el comportamiento de consumo de los últimos 15 días frente a los 75 días anteriores; si detecta una aceleración superior al 30%, eleva preventivamente el punto de pedido para evitar quiebres.</li>
+                </ul>
+
+                <hr class="my-4">
+
+                <!-- Sección 6 -->
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-diagram-3-fill text-primary"></i> 6. ¿Es escalable? (Análisis de Crecimiento Futuro)</h5>
+                <p class="text-secondary text-justify">Sí, MunchyGuard PT presenta un diseño altamente escalable. Su arquitectura de software está perfectamente preparada para crecer tanto horizontal como verticalmente por las siguientes razones:</p>
+                <ul class="text-secondary small ps-3">
+                    <li class="mb-2"><strong>Escalabilidad Geográfica y de Datos:</strong> El núcleo de la base de datos está normalizado relacionalmente bajo abstracciones de modelos (SQLAlchemy), lo que permite pasar de un entorno ligero local a un motor de base de datos corporativo centralizado en la nube (como PostgreSQL o SQL Server) para manejar cientos de CENDIS simultáneamente sin modificar el código fuente.</li>
+                    <li class="mb-2"><strong>Preparado para la Integración de APIs (IoT y Automatización):</strong> Al contar con endpoints limpios que procesan e intercambian formato JSON (como se evidencia en su API de lotes disponibles o auditoría), la plataforma está lista para interconectarse en el futuro con: Sistemas automáticos de picking, Bandas transportadoras inteligentes o terminales de radiofrecuencia (RF) y Portales de facturación de clientes externos.</li>
+                    <li class="mb-2"><strong>Flexibilidad Modular de Reglas de Negocio:</strong> Agregar una nueva regla logística (por ejemplo, una "Dimensión 7" de cross-docking o despacho directo) toma minutos, debido a que las lógicas de recolección de datos comerciales y operativos están encapsuladas y desacopladas de las capas de diseño visual (Bootstrap 5).</li>
+                </ul>
+
+                <div class="card bg-light border p-3 mb-3 small text-secondary font-monospace">
+                    <strong class="text-dark"><i class="bi bi-shuffle"></i> Ejemplo Práctico de Dimensión 7 (Cross-Docking):</strong><br>
+                    Imagina que salen de producción 100 paletas de un producto de alta rotación que ya está vendido.
+                    <ul class="mt-1 mb-2 ps-3">
+                        <li><strong>Sin la Dimensión 7:</strong> El usuario "Receptor" tendría que dar entrada al inventario, el sistema busca espacio en el almacén, el montacargas tendría que ubicarlo y, horas después, el "Despachador" tendría que ir a buscarlo para cargarlo en el camión de salida. Mucho movimiento innecesario.</li>
+                        <li><strong>Con la Dimensión 7:</strong> Al escanear la entrada, el sistema detecta que ese lote tiene orden de despacho inmediato. MunchyGuard salta el módulo de almacenamiento intermedio. El sistema genera una alerta directa al Despachador para que la mercancía pase directamente de la zona de recepción a la zona de carga (puerta a puerta).</li>
+                    </ul>
+                    <strong class="text-dark">Bondades y Beneficios Técnicos y Operativos:</strong><br>
+                    Al estar esta lógica desacoplada de la interfaz visual (Bootstrap 5), logramos tres beneficios críticos:
+                    <ol class="mt-1 mb-0 ps-3">
+                        <li><strong>Cero impacto en el diseño visual:</strong> No tienes que rediseñar las pantallas de los usuarios ni alterar cómo se ven los menús en las tabletas o computadoras del almacén. Las plantillas de Jinja2 y Bootstrap simplemente reciben un "estado" diferente del producto y muestran un botón de acción rápida (ej. "Asignar a Despacho Directo"), manteniendo la interfaz limpia y familiar para el operador.</li>
+                        <li><strong>Optimización real del espacio en Almacén:</strong> Al no registrar la mercancía en las posiciones físicas del almacén, las gráficas de capacidad (los gráficos de torta de ocupación de tus almacenes) se mantienen 100% reales. No verás "picos" falsos de ocupación por mercancía que solo estuvo 20 minutos en el suelo de la recepción.</li>
+                        <li><strong>Eficiencia total del flujo:</strong> Menor manipulación de carga, reducción de tiempos de respuesta en despachos críticos y la flexibilidad de adaptar el software a nuevas estrategias logísticas en cuestión de minutos, sin alterar el núcleo del sistema que ya funciona.</li>
+                    </ol>
+                </div>
+
+                <div class="mt-4 p-3 bg-dark text-white rounded small font-monospace text-center">
+                    MunchyGuard PT V20 no es un software pasivo; es un escudo de protección que garantiza que las decisiones de despacho coordinadas se basen en datos científicos reales, blindando la operación nacional contra los dos peores enemigos de la logística: el quiebre de stock y la merma por vencimiento.
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

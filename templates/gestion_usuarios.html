@@ -1,0 +1,124 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestión de Usuarios - MunchyGuard PT{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h3 mb-0 text-gray-800"><i class="bi bi-people-fill text-primary me-2"></i>Gestión de Usuarios y Roles de Acceso</h2>
+        <p class="text-muted small mb-0">Administra usuarios registrados, datos personales y asignación de permisos.</p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- CREACIÓN MANUAL -->
+    <div class="col-md-4 mb-4">
+        <div class="card card-custom shadow-sm">
+            <div class="card-header bg-dark text-white font-weight-bold p-3">
+                <i class="bi bi-person-plus-fill me-2 text-warning"></i>Crear Acceso Directo
+            </div>
+            <div class="card-body p-4">
+                <form action="/configuracion/gestion/usuarios" method="POST" autocomplete="off">
+                    <div class="mb-3">
+                        <label class="form-label font-weight-600">Usuario / Identificador</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                            <input type="text" name="username" class="form-control" required placeholder="Ej: jrodriguez">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label font-weight-600">Contraseña de Seguridad</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                            <input type="password" name="password" class="form-control" required placeholder="••••••••">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label font-weight-600">Rol Inicial</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
+                            <select name="rol" class="form-select" required>
+                                <option value="OPERADOR">OPERADOR (Control General)</option>
+                                <option value="ADMIN">ADMIN (Administrador Completo)</option>
+                                <option value="RECEPTOR">RECEPTOR (Solo Ingresos)</option>
+                                <option value="DESPACHADOR">DESPACHADOR (Solo Salidas FIFO)</option>
+                                <option value="CONSULTOR">CONSULTOR (Solo Lectura Corporativa)</option>
+                                <option value="GERENTE">GERENTE (Tablero Gerencial)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-disk me-2"></i>Guardar Acceso
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- LISTADO Y EDICIÓN DE ROLES -->
+    <div class="col-md-8 mb-4">
+        <div class="card card-custom shadow-sm">
+            <div class="card-header bg-secondary text-white font-weight-bold p-3">
+                <i class="bi bi-shield-lock me-2"></i>Usuarios Registrados en el Sistema
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 text-center">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Usuario / Datos</th>
+                                <th>Rol Actual / Asignar</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in usuarios %}
+                            <tr>
+                                <td class="text-start ps-3">
+                                    <strong class="text-dark">{{ u.username }}</strong>
+                                    {% if u.nombre_completo %}
+                                    <br><small class="text-muted">{{ u.nombre_completo }} ({{ u.cedula_rif or 'S/C' }})</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if u.username != 'admin' %}
+                                    <form action="{{ url_for('cambiar_rol_usuario', id=u.id) }}" method="POST" class="d-flex align-items-center justify-content-center gap-1">
+                                        <select name="rol" class="form-select form-select-sm fw-bold border-primary" style="max-width: 150px;">
+                                            <option value="OPERADOR" {% if u.rol == 'OPERADOR' %}selected{% endif %}>OPERADOR</option>
+                                            <option value="ADMIN" {% if u.rol == 'ADMIN' %}selected{% endif %}>ADMIN</option>
+                                            <option value="RECEPTOR" {% if u.rol == 'RECEPTOR' %}selected{% endif %}>RECEPTOR</option>
+                                            <option value="DESPACHADOR" {% if u.rol == 'DESPACHADOR' %}selected{% endif %}>DESPACHADOR</option>
+                                            <option value="CONSULTOR" {% if u.rol == 'CONSULTOR' %}selected{% endif %}>CONSULTOR</option>
+                                            <option value="GERENTE" {% if u.rol == 'GERENTE' %}selected{% endif %}>GERENTE</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-outline-primary py-1 px-2" title="Guardar Rol">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <span class="badge bg-danger px-3 py-2">ADMIN (Protegido)</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if u.username != 'admin' %}
+                                    <form action="/configuracion/usuarios/eliminar/{{ u.id }}" method="POST" onsubmit="return confirm('Jean, ¿estás 100% seguro de revocar este acceso permanentemente?');" class="m-0">
+                                        <button type="submit" class="btn btn-danger btn-sm fw-bold px-3">
+                                            <i class="bi bi-person-x-fill me-1"></i> Remover
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <span class="text-muted font-italic small"><i class="bi bi-shield-fill-check text-success"></i> Sistema Protegido</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

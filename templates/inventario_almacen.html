@@ -1,0 +1,268 @@
+{% extends 'layout.html' %}
+
+{% block title %}Stock Detallado por Almacén - Alimentos Munchy{% endblock %}
+
+{% block content %}
+<style>
+    .v10-card { 
+        background: #ffffff; 
+        border: 1px solid #e5e7eb; 
+        border-radius: 8px; 
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); 
+        margin-bottom: 1.5rem; 
+    }
+    .v10-header-title { 
+        font-size: 1.1rem; 
+        font-weight: 700; 
+        color: #1f2937; 
+        padding: 1.25rem 1.5rem; 
+        border-bottom: 1px solid #f3f4f6; 
+        display: flex; 
+        align-items: center; 
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.6rem; 
+    }
+    .btn-group-analitico .btn {
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+</style>
+
+<div class="v10-card p-4 bg-light">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h2 class="h4 fw-bold text-dark mb-1"><i class="bi bi-building-fill text-primary"></i> Stock Detallado por Almacén</h2>
+            <p class="text-muted small mb-0">Consulte los saldos reales organizados por ubicación con auditoría de vencimiento (Semáforo PEPS).</p>
+        </div>
+        <div>
+            <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary fw-bold px-3">
+                <i class="bi bi-arrow-left"></i> Volver al Tablero
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="v10-card p-3">
+    <div class="row g-3 align-items-center">
+        <div class="col-md-4">
+            <label class="small fw-bold text-secondary d-block mb-1">Filtrar por Centro de Distribución:</label>
+            <form method="GET" action="{{ url_for('inventario_por_almacen') }}">
+                <select name="almacen_id" class="form-select form-select-sm fw-semibold text-dark" onchange="this.form.submit()">
+                    <option value="TODOS" {% if almacen_seleccionado == 'TODOS' %}selected{% endif %}>🌍 TODOS LOS CEDIS (Red Nacional)</option>
+                    {% for a in almacenes %}
+                    <option value="{{ a.codigo }}" {% if almacen_seleccionado == a.codigo %}selected{% endif %}>
+                        🏬 {{ a.codigo }} - {{ a.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    <div class="col-md-4">
+        <label class="small fw-bold text-secondary d-block mb-1">Buscador Rápido (SKU / Artículo):</label>
+        <div class="input-group input-group-sm">
+            <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" id="txtBuscadorAnalitico" class="form-control" oninput="this.value = this.value.upper(); procesarMatrizInventario();" placeholder="Escriba SKU o descripción...">
+        </div>
+    </div>
+
+    <div class="col-md-4 text-md-end pt-3">
+        <button type="button" class="btn btn-sm btn-success fw-bold px-3" onclick="exportarMatrizAExcel()">
+            <i class="bi bi-file-earmark-excel"></i> Exportar Vista Actual a Excel
+        </button>
+    </div>
+
+    <div class="col-12 border-top pt-2 mt-2">
+        <label class="small fw-bold text-secondary d-block mb-2"><i class="bi bi-layers-half text-primary"></i> Seleccionar Nivel de Agrupación del Stock:</label>
+        <div class="btn-group btn-group-analitico" role="group">
+            <button type="button" id="btn_modo_lote" class="btn btn-sm btn-primary active" onclick="cambiarModoVista('lote')">
+                <i class="bi bi-box-seam"></i> 1. Detalle por Lote (PEPS)
+            </button>
+            <button type="button" id="btn_modo_sku" class="btn btn-sm btn-outline-primary" onclick="cambiarModoVista('sku')">
+                <i class="bi bi-tags-fill"></i> 2. Consolidado por SKU (Sin Lote)
+            </button>
+            <button type="button" id="btn_modo_almacen" class="btn btn-sm btn-outline-primary" onclick="cambiarModoVista('almacen')">
+                <i class="bi bi-buildings"></i> 3. Totalizado por Almacén
+            </button>
+        </div>
+    </div>
+</div>
+</div>
+
+<div class="v10-card">
+    <div class="v10-header-title">
+        <span id="lblTituloTabla">Reporte de Existencias Físicas y Trazabilidad</span>
+        <span class="badge bg-dark" id="badgeTotalLineas">Cargando...</span>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-hover text-center align-middle mb-0" id="tablaInventarioAnalitico" style="font-size: 0.9rem;">
+            <thead class="table-light fw-bold text-secondary" id="theadAnalitico">
+                </thead>
+            <tbody id="tbodyAnalitico">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const DATA_INVENTARIO_BASE = [
+        {% for item in inventario %}
+        {
+            alerta_color: "{{ item.alerta_color }}",
+            almacen: "{{ item.almacen }}",
+            codigo_producto: "{{ item.codigo_producto }}",
+            producto_nombre: "{{ dict_productos.get(item.codigo_producto, 'SKU No Asignado') }}",
+            numero_lote: "{{ item.numero_lote }}",
+            fecha_vencimiento: "{{ item.fecha_vencimiento }}",
+            cantidad: {{ item.cantidad|int }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+</script>
+
+<script>
+let MODO_VISTA_ACTUAL = 'lote'; // lote, sku, almacen
+
+function cambiarModoVista(nuevoModo) {
+    MODO_VISTA_ACTUAL = nuevoModo;
+    
+    // Conmutación de clases de botones
+    ['lote', 'sku', 'almacen'].forEach(m => {
+        const btn = document.getElementById(`btn_modo_${m}`);
+        if (m === nuevoModo) {
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-primary', 'active');
+        } else {
+            btn.classList.remove('btn-primary', 'active');
+            btn.classList.add('btn-outline-primary');
+        }
+    });
+
+    procesarMatrizInventario();
+}
+
+function procesarMatrizInventario() {
+    const busqueda = document.getElementById('txtBuscadorAnalitico').value.toLowerCase().trim();
+    const thead = document.getElementById('theadAnalitico');
+    const tbody = document.getElementById('tbodyAnalitico');
+    
+    // 1. Filtrado básico por buscador sobre la data original
+    let dataFiltrada = DATA_INVENTARIO_BASE.filter(item => {
+        return item.codigo_producto.toLowerCase().includes(busqueda) || 
+               item.producto_nombre.toLowerCase().includes(busqueda) ||
+               item.almacen.toLowerCase().includes(busqueda);
+    });
+
+    tbody.innerHTML = "";
+
+    // 2. Renderizado condicional según la dimensión elegida
+    if (MODO_VISTA_ACTUAL === 'lote') {
+        document.getElementById('lblTituloTabla').innerText = "Reporte: Detalle por Lote (PEPS Activo)";
+        thead.innerHTML = `
+            <tr>
+                <th>Estatus (PEPS)</th>
+                <th>Almacén</th>
+                <th>SKU Target</th>
+                <th>Producto / Descripción</th>
+                <th>Número de Lote</th>
+                <th>Fecha Vencimiento</th>
+                <th>Stock Actual (Unds)</th>
+            </tr>`;
+
+        dataFiltrada.forEach(item => {
+            let badgeColor = item.alerta_color === 'rojo' ? 'bg-danger text-white' : (item.alerta_color === 'amarillo' ? 'bg-warning text-dark' : 'bg-success text-white');
+            tbody.innerHTML += `
+                <tr>
+                    <td><span class="badge ${badgeColor} px-2 py-1 fw-bold" style="min-width: 85px;">${item.alerta_color.toUpperCase()}</span></td>
+                    <td><span class="badge bg-secondary fw-semibold px-2 py-1">${item.almacen}</span></td>
+                    <td class="fw-bold text-dark">${item.codigo_producto}</td>
+                    <td class="text-start text-truncate fw-medium text-secondary" style="max-width: 260px;">${item.producto_nombre}</td>
+                    <td><code class="fw-bold" style="color: #db2777; font-size: 0.9rem;">${item.numero_lote}</code></td>
+                    <td class="fw-medium">${item.fecha_vencimiento}</td>
+                    <td class="fw-bold text-dark fs-6">${item.cantidad.toLocaleString()}</td>
+                </tr>`;
+        });
+
+    } else if (MODO_VISTA_ACTUAL === 'sku') {
+        document.getElementById('lblTituloTabla').innerText = "Reporte: Stock Consolidado por SKU (Suma de Lotes)";
+        thead.innerHTML = `
+            <tr>
+                <th>Almacén</th>
+                <th>SKU Target</th>
+                <th>Producto / Descripción</th>
+                <th>Cantidad Total (Unds)</th>
+            </tr>`;
+
+        // Agrupación matemática por Almacén + SKU
+        let agrupadoSku = {};
+        dataFiltrada.forEach(item => {
+            let clave = `${item.almacen}|${item.codigo_producto}`;
+            if (!agrupadoSku[clave]) {
+                agrupadoSku[clave] = { almacen: item.almacen, sku: item.codigo_producto, nombre: item.producto_nombre, total: 0 };
+            }
+            agrupadoSku[clave].total += item.cantidad;
+        });
+
+        Object.values(agrupadoSku).forEach(item => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><span class="badge bg-secondary fw-semibold px-2 py-1">${item.almacen}</span></td>
+                    <td class="fw-bold text-dark">${item.sku}</td>
+                    <td class="text-start fw-medium text-secondary">${item.nombre}</td>
+                    <td class="fw-bold text-primary fs-6">${item.total.toLocaleString()} Unds</td>
+                </tr>`;
+        });
+
+    } else if (MODO_VISTA_ACTUAL === 'almacen') {
+        document.getElementById('lblTituloTabla').innerText = "Reporte: Capacidad Totalizada por Centro de Distribución";
+        thead.innerHTML = `
+            <tr>
+                <th>Centro de Distribución / Almacén</th>
+                <th>Volumen Ocupado en Red (Suma Total)</th>
+            </tr>`;
+
+        // Agrupación matemática únicamente por Almacén
+        let agrupadoAlm = {};
+        dataFiltrada.forEach(item => {
+            if (!agrupadoAlm[item.almacen]) {
+                agrupadoAlm[item.almacen] = 0;
+            }
+            agrupadoAlm[item.almacen] += item.cantidad;
+        });
+
+        Object.keys(agrupadoAlm).forEach(alm => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><span class="badge bg-dark fw-bold fs-6 px-3 py-2"><i class="bi bi-building"></i> ${alm}</span></td>
+                    <td class="fw-bold text-success fs-5">${agrupadoAlm[alm].toLocaleString()} Unidades</td>
+                </tr>`;
+        });
+    }
+
+    document.getElementById('badgeTotalLineas').innerText = `Líneas mostradas: ${tbody.children.length}`;
+}
+
+// FUNCIÓN CLAVE: Exportación nativa directa a Excel sin librerías externas pesadas
+function exportarMatrizAExcel() {
+    const tabla = document.getElementById("tablaInventarioAnalitico");
+    let html = tabla.outerHTML;
+    
+    // Codificación segura de URI para descarga inmediata de Excel
+    let url = 'data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent(html);
+    let downloadLink = document.createElement("a");
+    document.body.appendChild(downloadLink);
+    
+    downloadLink.href = url;
+    downloadLink.download = `munchy_stock_cubo_${MODO_VISTA_ACTUAL}_${new Date().toISOString().slice(0,10)}.xls`;
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+}
+
+// Inicializar la tabla dinámicamente al abrir la página
+document.addEventListener("DOMContentLoaded", function() {
+    procesarMatrizInventario();
+});
+</script>
+{% endblock %}

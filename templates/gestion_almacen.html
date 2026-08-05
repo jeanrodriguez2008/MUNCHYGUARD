@@ -1,0 +1,189 @@
+{% extends 'layout.html' %}
+
+{% block title %}Gestión de Almacenes - Alimentos Munchy{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Encabezado de la Vista -->
+    <div class="card shadow-sm mb-4 border-0" style="background: #ffffff; border-radius: 8px;">
+        <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h3 class="fw-bold mb-1 text-dark" style="font-size: 1.4rem;">
+                    <i class="bi bi-building-gear text-primary"></i> Control de Almacenes y Capacidades Físicas
+                </h3>
+                <p class="text-muted small mb-0">Módulo para la actualización de topes máximos de ocupación de Almacenes</p>
+            </div>
+            <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary fw-bold px-3 py-2">
+                <i class="bi bi-arrow-left"></i> Volver al Tablero
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Columna Izquierda: Formulario de Registro / Edición -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 p-4" style="background: #ffffff; border-radius: 8px;">
+                <h5 class="fw-bold mb-3 text-secondary" style="font-size: 1.05rem;" id="form-title">
+                    <i class="bi bi-plus-circle-fill text-success"></i> Registrar / Modificar Almacén
+                </h5>
+                <hr class="mt-0 mb-3">
+
+                <form action="{{ url_for('gestion_almacen_vista') }}" method="POST">
+                    <input type="hidden" name="id_almacen" id="id_almacen" value="">
+
+                    <div class="mb-3" id="wrapper-codigo">
+                        <label class="form-label small fw-bold text-dark">Código del Almacén:</label>
+                        <input type="text" name="codigo" id="codigo" class="form-control form-control-sm bg-light" placeholder="Ej: CENDIS_BARQUISIMETO" style="text-transform: uppercase;">
+                        <div class="form-text text-muted small" style="font-size: 0.75rem;">Debe ser un código único en el sistema.</div>
+                    </div>
+
+                    <div class="mb-3" id="wrapper-nombre">
+                        <label class="form-label small fw-bold text-dark">Nombre de la Sucursal:</label>
+                        <input type="text" name="nombre" id="nombre" class="form-control form-control-sm bg-light" placeholder="Ej: CENDIS Barquisimeto">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-dark">Capacidad Máxima Física (Unds):</label>
+                        <input type="number" name="capacidad_maxima" id="capacidad_maxima" class="form-control form-control-sm bg-white text-center fw-bold text-primary" value="10000" min="1" required>
+                        <div class="form-text text-muted small" style="font-size: 0.75rem;">Utilizado por el motor analítico para el cálculo del gráfico de torta.</div>
+                    </div>
+
+                    <div class="d-grid gap-2 pt-2">
+                        <button type="submit" class="btn btn-sm text-white fw-bold py-2" style="background-color: #1a365d;" id="btn-submit-almacen">
+                            Guardar Registro
+                        </button>
+                        <button type="button" class="btn btn-sm btn-light border d-none" id="btn-cancelar-edicion" onclick="resetearFormularioAlmacen()">
+                            Cancelar Edición
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Listado de Almacenes Registrados con Selección Masiva -->
+        <div class="col-md-8">
+            <form action="{{ url_for('eliminar_multiple') }}" method="POST" onsubmit="return confirm('¿Está seguro de eliminar de forma masiva todos los almacenes seleccionados?');">
+                <input type="hidden" name="tipo_maestro" value="almacen">
+                
+                <div class="card shadow-sm border-0" style="background: #ffffff; border-radius: 8px; overflow: hidden;">
+                    <div class="p-3 bg-light fw-bold text-dark border-bottom d-flex justify-content-between align-items-center" style="font-size: 1rem;">
+                        <span><i class="bi bi-table text-secondary"></i> Sucursales Activas en el Sistema</span>
+                        {% if current_user.rol == 'ADMIN' %}
+                        <button type="submit" class="btn btn-sm btn-danger fw-bold" id="btn-eliminar-lote" disabled>
+                            <i class="bi bi-trash3-fill"></i> Eliminar Seleccionados
+                        </button>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover text-center align-middle mb-0 small">
+                            <thead class="table-light text-secondary fw-bold">
+                                <tr>
+                                    {% if current_user.rol == 'ADMIN' %}
+                                    <th style="width: 40px;"><input type="checkbox" id="check-all" onclick="toggleTodosAlmacenes(this)"></th>
+                                    {% endif %}
+                                    <th>ID</th>
+                                    <th>Código</th>
+                                    <th class="text-start">Nombre del Almacén</th>
+                                    <th>Capacidad Máxima</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for almacen in almacenes %}
+                                <tr>
+                                    {% if current_user.rol == 'ADMIN' %}
+                                    <td><input type="checkbox" name="registro_ids" value="{{ almacen.id }}" onclick="verificarCheckboxesAlmacenes()"></td>
+                                    {% endif %}
+                                    <td><span class="text-muted">{{ almacen.id }}</span></td>
+                                    <td><span class="badge bg-secondary font-monospace px-2 py-1">{{ almacen.codigo }}</span></td>
+                                    <td class="text-start fw-semibold text-dark">{{ almacen.nombre }}</td>
+                                    <td class="fw-bold text-primary">{{ almacen.capacidad_maxima }} Unds</td>
+                                    <td>
+                                        <div class="d-flex justify-content-center gap-2">
+                                            <!-- Botón de Edición Estilo image_0b78b1.png -->
+                                            <button type="button" class="btn btn-sm btn-outline-primary px-3 py-1" 
+                                                    onclick="prepararEdicionAlmacen('{{ almacen.id }}', '{{ almacen.codigo }}', '{{ almacen.nombre }}', '{{ almacen.capacidad_maxima }}')">
+                                                <i class="bi bi-pencil-square"></i> Editar Capacidad
+                                            </button>
+                                            
+                                            <!-- INYECCIÓN DEL BOTÓN DE ELIMINACIÓN INDIVIDUAL -->
+                                            {% if current_user.rol == 'ADMIN' %}
+                                            <button type="submit" formaction="{{ url_for('eliminar_almacen_maestro', id=almacen.id) }}" class="btn btn-sm btn-outline-danger px-3 py-1" onclick="return confirm('¿Está completamente seguro de desincorporar el almacén \'{{ almacen.nombre }}\'?');">
+                                                <i class="bi bi-trash3-fill"></i> Eliminar
+                                            </button>
+                                            {% else %}
+                                            <button class="btn btn-sm btn-light border px-2 py-1 text-muted" disabled title="Solo lectura">
+                                                <i class="bi bi-lock-fill"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-muted py-4">
+                                        <i class="bi bi-exclamation-circle d-block fs-4 mb-2 text-warning"></i>
+                                        No hay almacenes configurados en la base de datos de Alimentos Munchy.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function prepararEdicionAlmacen(id, codigo, nombre, capacidad) {
+    document.getElementById('form-title').innerHTML = '<i class="bi bi-pencil-fill text-warning"></i> Modificar Capacidad Máxima';
+    document.getElementById('btn-submit-almacen').className = 'btn btn-sm btn-warning text-dark fw-bold py-2';
+    document.getElementById('btn-submit-almacen').innerText = 'Actualizar Capacidad';
+    document.getElementById('btn-cancelar-edicion').classList.remove('d-none');
+
+    document.getElementById('id_almacen').value = id;
+    document.getElementById('codigo').value = codigo;
+    document.getElementById('nombre').value = nombre;
+    document.getElementById('capacidad_maxima').value = capacidad;
+
+    document.getElementById('codigo').disabled = true;
+    document.getElementById('nombre').disabled = true;
+    document.getElementById('codigo').classList.add('bg-light-subtle');
+    document.getElementById('nombre').classList.add('bg-light-subtle');
+}
+
+function resetearFormularioAlmacen() {
+    document.getElementById('form-title').innerHTML = '<i class="bi bi-plus-circle-fill text-success"></i> Registrar / Modificar Almacén';
+    document.getElementById('btn-submit-almacen').className = 'btn btn-sm text-white fw-bold py-2';
+    document.getElementById('btn-submit-almacen').style.backgroundColor = '#1a365d';
+    document.getElementById('btn-submit-almacen').innerText = 'Guardar Registro';
+    document.getElementById('btn-cancelar-edicion').classList.add('d-none');
+
+    document.getElementById('id_almacen').value = '';
+    document.getElementById('codigo').value = '';
+    document.getElementById('nombre').value = '';
+    document.getElementById('capacidad_maxima').value = '10000';
+
+    document.getElementById('codigo').disabled = false;
+    document.getElementById('nombre').disabled = false;
+}
+
+// Controladores Javascript para Selección Múltiple V20
+function toggleTodosAlmacenes(master) {
+    const checkboxes = document.getElementsByName('registro_ids');
+    checkboxes.forEach(cb => cb.checked = master.checked);
+    verificarCheckboxesAlmacenes();
+}
+
+function verificarCheckboxesAlmacenes() {
+    const checkboxes = document.getElementsByName('registro_ids');
+    const btn = document.getElementById('btn-eliminar-lote');
+    if(!btn) return;
+    let algunoActivo = Array.from(checkboxes).some(cb => cb.checked);
+    btn.disabled = !algunoActivo;
+}
+</script>
+{% endblock %}

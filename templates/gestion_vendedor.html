@@ -1,0 +1,92 @@
+{% extends 'layout.html' %}
+{% block title %}Gestión de Vendedores{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card p-4 border-0 shadow-sm mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h3><i class="bi bi-person-badge text-primary"></i> Fuerza de Ventas (Vendedores)</h3>
+            <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary fw-bold">Volver</a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card p-4 border-0 shadow-sm">
+                <h5 class="fw-bold"><i class="bi bi-plus-circle text-success"></i> Añadir Vendedor</h5>
+                <hr>
+                <form action="{{ url_for('gestion_vendedor_vista') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Código Fuerza Ventas:</label>
+                        <input type="text" name="codigo" class="form-control form-control-sm" required style="text-transform:upper-case;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Nombre Completo:</label>
+                        <input type="text" name="nombre" class="form-control form-control-sm" required>
+                    </div>
+                    <button type="submit" class="btn btn-sm w-100 text-white" style="background-color: #1a365d;">Registrar Vendedor</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <form action="{{ url_for('eliminar_multiple') }}" method="POST" onsubmit="return confirm('¿Eliminar todos los vendedores seleccionados?');">
+                <input type="hidden" name="tipo_maestro" value="vendedor">
+                
+                <div class="card border-0 shadow-sm">
+                    <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">Vendedores Registrados</span>
+                        {% if current_user.rol == 'ADMIN' %}
+                        <button type="submit" class="btn btn-sm btn-danger fw-bold" id="btn-eliminar-lote" disabled>
+                            <i class="bi bi-trash3-fill"></i> Eliminar en Lote
+                        </button>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover text-center align-middle mb-0 small">
+                            <thead class="table-light">
+                                <tr>
+                                    {% if current_user.rol == 'ADMIN' %}<th><input type="checkbox" id="check-all" onclick="toggleTodosMaestros(this)"></th>{% endif %}
+                                    <th>ID</th><th>Código</th><th class="text-start">Nombre del Asesor</th><th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for v in vendedores %}
+                                <tr>
+                                    {% if current_user.rol == 'ADMIN' %}<td><input type="checkbox" name="registro_ids" value="{{ v.id }}" onclick="verificarCheckboxesMaestros()"></td>{% endif %}
+                                    <td>{{ v.id }}</td>
+                                    <td><span class="badge bg-secondary font-monospace">{{ v.codigo }}</span></td>
+                                    <td class="text-start fw-bold text-dark">{{ v.nombre }}</td>
+                                    <td>
+                                        {% if current_user.rol == 'ADMIN' %}
+                                        <button type="submit" formaction="{{ url_for('eliminar_vendedor_maestro', id=v.id) }}" class="btn btn-sm btn-outline-danger px-2 py-1" onclick="return confirm('¿Desincorporar este asesor de ventas?');">
+                                            <i class="bi bi-trash3"></i>
+                                        </button>
+                                        {% else %}<i class="bi bi-lock-fill text-muted"></i>{% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleTodosMaestros(master) {
+    const checkboxes = document.getElementsByName('registro_ids');
+    checkboxes.forEach(cb => cb.checked = master.checked);
+    verificarCheckboxesMaestros();
+}
+function verificarCheckboxesMaestros() {
+    const checkboxes = document.getElementsByName('registro_ids');
+    const btn = document.getElementById('btn-eliminar-lote');
+    if(!btn) return;
+    let algunoActivo = Array.from(checkboxes).some(cb => cb.checked);
+    btn.disabled = !algunoActivo;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,303 @@
+{% extends 'layout.html' %}
+
+{% block title %}Auditoría e Historial Crítico por Lote - Alimentos Munchy{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Encabezado Estilo de la Aplicación -->
+    <div class="card shadow-sm mb-4 border-0" style="background: #ffffff; border-radius: 8px;">
+        <div class="card-body p-4">
+            <h3 class="fw-bold mb-1 text-dark" style="font-size: 1.4rem;">
+                <i class="bi bi-search text-primary"></i> Auditoría e Historial Crítico por Lote
+            </h3>
+            <p class="text-muted small mb-0">Ingrese los parámetros de búsqueda. Dispone de autocompletado inteligente en tiempo real para agilizar la consulta logísticakardex.</p>
+        </div>
+    </div>
+
+    <!-- Panel de Filtros Inteligentes -->
+    <div class="card shadow-sm border-0 mb-4 p-4" style="background: #ffffff; border-radius: 8px;">
+        <form method="GET" action="{{ url_for('trazabilidad_lote') }}" autocomplete="off" onsubmit="prepararEnvioFiltros(event)">
+            <div class="row g-3 align-items-end">
+                
+                <!-- 1. Filtro Inteligente de Número de Lote Target -->
+                <div class="col-md-3 position-relative">
+                    <label class="form-label small fw-bold text-dark">Número de Lote Target</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light text-muted"><i class="bi bi-hash"></i></span>
+                        <input type="text" id="input_lote_visual" class="form-control bg-white" placeholder="Escriba o seleccione lote..." value="{{ lote_buscado }}">
+                    </div>
+                    <input type="hidden" name="lote" id="lote_hidden" value="{{ lote_buscado }}">
+                    <div id="sugerencias_lote" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1050; max-height: 200px; overflow-y: auto;"></div>
+                </div>
+
+                <!-- 2. Filtro Inteligente de Artículo (SKU) -->
+                <div class="col-md-3 position-relative">
+                    <label class="form-label small fw-bold text-dark">O Filtrar por Artículo (SKU)</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light text-muted"><i class="bi bi-box-seam"></i></span>
+                        <input type="text" id="input_sku_visual" class="form-control bg-white" placeholder="Escriba descripción o código de producto..." 
+                               value="{% if sku_buscado %}{{ sku_buscado }} - {{ dict_productos.get(sku_buscado, '') }}{% endif %}">
+                    </div>
+                    <input type="hidden" name="sku" id="sku_hidden" value="{{ sku_buscado }}">
+                    <div id="sugerencias_sku" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1050; max-height: 200px; overflow-y: auto;"></div>
+                </div>
+
+                <!-- 3. Selector de Almacén (CEDIS) -->
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-dark">Almacén (CEDIS)</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light text-muted"><i class="bi bi-building"></i></span>
+                        <select name="almacen" class="form-select bg-white">
+                            <option value="">-- Todos --</option>
+                            {% for a in almacenes %}
+                            <option value="{{ a.codigo }}" {% if almacen_query == a.codigo %}selected{% endif %}>{{ a.nombre }} ({{ a.codigo }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 4. Rango de Fechas de Auditoría (Desde / Hasta) -->
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-dark"><i class="bi bi-calendar-event text-warning me-1"></i>Fecha Desde</label>
+                    <input type="date" name="fecha_inicio" class="form-control form-control-sm bg-white fw-bold" value="{{ fecha_inicio }}">
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-dark"><i class="bi bi-calendar-event text-warning me-1"></i>Fecha Hasta</label>
+                    <input type="date" name="fecha_fin" class="form-control form-control-sm bg-white fw-bold" value="{{ fecha_fin }}">
+                </div>
+
+                <!-- 5. Botón de Acción Principal Sincronizado -->
+                <div class="col-12 text-end">
+                    <a href="{{ url_for('trazabilidad_lote') }}" class="btn btn-sm btn-outline-secondary me-2">Limpiar Filtros</a>
+                    <button type="submit" class="btn btn-sm text-white fw-bold px-4 py-2" style="background-color: #0d6efd;">
+                        <i class="bi bi-shield-check me-1"></i> Auditar Kardex por Período
+                    </button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- PANEL RESUMEN DE AUDITORÍA POR PERÍODO / LAPSO          -->
+    <!-- ======================================================== -->
+    {% if auditoria %}
+    <div class="card shadow-sm border-0 mb-4 p-4" style="background: #ffffff; border-radius: 8px; border-left: 5px solid #f59e0b !important;">
+        <h5 class="fw-bold text-dark mb-3" style="font-size: 1.1rem;">
+            <i class="bi bi-shield-check text-warning me-2"></i>Resultado de Auditoría {{ auditoria.texto_lapso }}
+            {% if sku_buscado %}<span class="badge bg-primary ms-2">SKU: {{ sku_buscado }}</span>{% endif %}
+            {% if almacen_query %}<span class="badge bg-dark ms-1">Almacén: {{ almacen_query }}</span>{% endif %}
+        </h5>
+        
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="p-3 bg-light border rounded text-center">
+                    <span class="text-muted small d-block fw-bold">Saldo Inicial (Inicio Lapso)</span>
+                    <span class="fs-4 fw-bold text-dark font-monospace">{{ "{:,}".format(auditoria.saldo_inicial).replace(',', '.') }}</span>
+                    <small class="text-muted d-block">Stock al inicio del período</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="p-3 bg-success bg-opacity-10 border border-success border-opacity-25 rounded text-center">
+                    <span class="text-success small d-block fw-bold">(+) Entradas del Período</span>
+                    <span class="fs-4 fw-bold text-success font-monospace">+{{ "{:,}".format(auditoria.entradas_dia).replace(',', '.') }}</span>
+                    <small class="text-muted d-block">Ingresos / Producción</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="p-3 bg-danger bg-opacity-10 border border-danger border-opacity-25 rounded text-center">
+                    <span class="text-danger small d-block fw-bold">(-) Salidas del Período</span>
+                    <span class="fs-4 fw-bold text-danger font-monospace">-{{ "{:,}".format(auditoria.salidas_dia).replace(',', '.') }}</span>
+                    <small class="text-muted d-block">Facturación / Despachos</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="p-3 bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded text-center">
+                    <span class="text-primary small d-block fw-bold">(=) Saldo Final (Cierre Lapso)</span>
+                    <span class="fs-4 fw-bold text-primary font-monospace">{{ "{:,}".format(auditoria.saldo_final).replace(',', '.') }}</span>
+                    <small class="text-muted d-block">Cierre de inventario</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ======================================================== -->
+    <!-- TABLA DE RESULTADOS DE AUDITORÍA KARDEX CRÍTICA        -->
+    <!-- ======================================================== -->
+    {% if movimientos %}
+    <div class="card shadow-sm border-0 mb-4" style="background: #ffffff; border-radius: 8px; overflow: hidden;">
+        <div class="p-3 bg-light fw-bold text-dark border-bottom small">
+            <i class="bi bi-journal-text text-secondary"></i> Trazabilidad de Operaciones e Historial Registrado en el Período
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover text-center align-middle mb-0 small">
+                <thead class="table-light text-secondary fw-bold">
+                    <tr>
+                        <th>Fecha Sistema</th>
+                        <th>Operación</th>
+                        <th>Motivo Operacional</th>
+                        <th>Detalle Dev.</th>
+                        <th>SKU Código</th>
+                        <th class="text-start">Descripción del Producto</th>
+                        <th>Origen</th>
+                        <th>Destino</th>
+                        <th>Lote</th>
+                        <th>Vencimiento</th>
+                        <th>Cantidad (Unds)</th>
+                        <th>Documento Referencia</th>
+                        <th>Usuario</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in movimientos %}
+                    <tr>
+                        <td>{{ m.fecha_sistema.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td><span class="badge {% if m.tipo_operacion == 'ENTRADA' %}bg-primary{% else %}bg-danger{% endif %}">{{ m.tipo_operacion }}</span></td>
+                        <td><span class="fw-medium">{{ m.tipo_motivo }}</span></td>
+                        <td><em class="text-muted">{{ m.detalle_devolucion or '--' }}</em></td>
+                        <td class="fw-bold">{{ m.codigo_producto }}</td>
+                        <td class="text-start text-truncate" style="max-width: 180px;">{{ dict_productos.get(m.codigo_producto, m.codigo_producto) }}</td>
+                        <td><span class="badge bg-secondary">{{ m.almacen_origen or '--' }}</span></td>
+                        <td><span class="badge bg-dark">{{ m.almacen_destino or '--' }}</span></td>
+                        <td><code>{{ m.numero_lote }}</code></td>
+                        <td>{{ m.fecha_vencimiento }}</td>
+                        <td class="fw-bold text-dark font-monospace">{{ m.cantidad }}</td>
+                        <td><u>{{ m.referencia_documento }}</u></td>
+                        <td><small class="text-muted">{{ m.usuario_registro or 'Sistema' }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% elif lote_buscado or sku_buscado or fecha_inicio %}
+    <div class="alert alert-warning border-0 shadow-sm text-center py-4">
+        <i class="bi bi-exclamation-triangle-fill fs-3 mb-2 d-block"></i>
+        No se localizaron transacciones de inventario en el Kardex para los criterios y fechas especificadas.
+    </div>
+    {% endif %}
+</div>
+
+<!-- MOTOR DE BÚSQUEDA INTERACTIVO EN TIEMPO REAL V20 -->
+<script>
+const catálogoProductos = [
+    {% for prod in productos_lista %}
+    { codigo: "{{ prod.codigo }}", articulo: "{{ prod.articulo }}" },
+    {% endfor %}
+];
+
+const lotesDisponibles = [];
+{% if movimientos_lista %}
+    {% for m in movimientos_lista %}
+        if(!lotesDisponibles.includes("{{ m.numero_lote }}")){ lotesDisponibles.push("{{ m.numero_lote }}"); }
+    {% endfor %}
+{% else %}
+    {% for m in movimientos %}
+        if(!lotesDisponibles.includes("{{ m.numero_lote }}")){ lotesDisponibles.push("{{ m.numero_lote }}"); }
+    {% endfor %}
+{% endif %}
+
+document.addEventListener("DOMContentLoaded", () => {
+    configurarFiltroInteligente("input_sku_visual", "sugerencias_sku", "sku_hidden", catálogoProductos, true);
+    configurarFiltroInteligente("input_lote_visual", "sugerencias_lote", "lote_hidden", lotesDisponibles, false);
+});
+
+function configurarFiltroInteligente(idInput, idSugerencias, idHidden, data, esProducto) {
+    const input = document.getElementById(idInput);
+    const cajaSug = document.getElementById(idSugerencias);
+    const hidden = document.getElementById(idHidden);
+
+    function renderizarSugerencias(listaFiltrada) {
+        cajaSug.innerHTML = "";
+        if (listaFiltrada.length > 0) {
+            cajaSug.classList.remove("d-none");
+            listaFiltrada.forEach(item => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "list-group-item list-group-item-action text-start small border-0 py-2";
+                
+                if (esProducto) {
+                    btn.innerHTML = `<strong>${item.codigo}</strong> - ${item.articulo}`;
+                    btn.onclick = () => {
+                        input.value = `${item.codigo} - ${item.articulo}`;
+                        hidden.value = item.codigo;
+                        cajaSug.classList.add("d-none");
+                    };
+                } else {
+                    btn.innerHTML = `<i class="bi bi-box-seam text-secondary me-2"></i> Lote: <strong>${item}</strong>`;
+                    btn.onclick = () => {
+                        input.value = item;
+                        hidden.value = item;
+                        cajaSug.classList.add("d-none");
+                    };
+                }
+                cajaSug.appendChild(btn);
+            });
+        } else {
+            cajaSug.classList.add("d-none");
+        }
+    }
+
+    input.addEventListener("click", function() {
+        const busqueda = this.value.trim().toLowerCase();
+        if (!busqueda) {
+            const iniciales = esProducto ? data.slice(0, 8) : data.slice(0, 15);
+            renderizarSugerencias(iniciales);
+        }
+    });
+
+    input.addEventListener("input", function() {
+        const busqueda = this.value.trim().toLowerCase();
+        
+        if (!busqueda) {
+            const iniciales = esProducto ? data.slice(0, 8) : data.slice(0, 15);
+            renderizarSugerencias(iniciales);
+            hidden.value = "";
+            return;
+        }
+
+        let filtrados = [];
+        if (esProducto) {
+            filtrados = data.filter(item => 
+                item.codigo.toLowerCase().includes(busqueda) || 
+                item.articulo.toLowerCase().includes(busqueda)
+            ).slice(0, 8);
+        } else {
+            filtrados = data.filter(lote => lote.toLowerCase().includes(busqueda)).slice(0, 15);
+        }
+
+        renderizarSugerencias(filtrados);
+    });
+
+    document.addEventListener("click", (e) => {
+        if (e.target !== input && !cajaSug.contains(e.target)) {
+            cajaSug.classList.add("d-none");
+        }
+    });
+}
+
+function prepararEnvioFiltros(e) {
+    const inputSKU = document.getElementById('input_sku_visual').value;
+    const inputLote = document.getElementById('input_lote_visual').value;
+
+    if (!inputSKU) document.getElementById('sku_hidden').value = "";
+    if (!inputLote) document.getElementById('lote_hidden').value = "";
+}
+</script>
+
+<style>
+    .list-group {
+        background-color: white;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        width: 100%;
+    }
+    .list-group-item-action:hover {
+        background-color: #f8fafc !important;
+        color: #0284c7 !important;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}

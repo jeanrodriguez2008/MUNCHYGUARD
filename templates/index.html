@@ -1,0 +1,726 @@
+{% extends 'layout.html' %}
+
+{% block title %}Tablero de Control - Alimentos Munchy{% endblock %}
+
+{% block content %}
+<style>
+    .v10-card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin-bottom: 1.5rem; }
+    
+    .btn-v10-modular { 
+        display: flex; flex-direction: column; align-items: center; justify-content: center; 
+        padding: 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; 
+        text-decoration: none; color: #1e293b; font-weight: 600; font-size: 0.9rem; height: 100px; 
+    }
+    .btn-v10-modular:hover { background: #f1f5f9; border-color: #cbd5e1; }
+    .btn-v10-modular i { font-size: 1.5rem; margin-bottom: 0.4rem; color: #64748b; }
+
+    /* ESTILOS DE BOTONES DE ENTRADA Y SALIDA CORREGIDOS (HOVER PROFESIONAL) */
+    .btn-op-main { 
+        padding: 1rem; 
+        font-weight: 700; 
+        font-size: 1rem; 
+        color: #ffffff !important; 
+        border: none; 
+        border-radius: 6px; 
+        transition: background-color 0.2s ease, transform 0.1s ease; 
+    }
+    
+    /* Botón de Entrada (Azul) */
+    .btn-op-blue { 
+        background-color: #2563eb; 
+    }
+    .btn-op-blue:hover, .btn-op-blue:focus, .btn-op-blue:active { 
+        background-color: #1d4ed8 !important; /* Azul más profundo y corporativo */
+        color: #ffffff !important; /* Mantiene texto blanco */
+    }
+
+    /* Botón de Despacho (Rojo) */
+    .btn-op-red { 
+        background-color: #dc2626; 
+    }
+    .btn-op-red:hover, .btn-op-red:focus, .btn-op-red:active { 
+        background-color: #b91c1c !important; /* Rojo borgoña profundo y seguro */
+        color: #ffffff !important; /* Mantiene texto blanco */
+    }
+
+    .v10-header-title { font-size: 1.1rem; font-weight: 700; color: #1f2937; padding: 1.25rem 1.5rem; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; gap: 0.6rem; }
+
+    .btn-config-v10 { font-weight: 700; font-size: 0.9rem; color: white !important; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.2rem; text-decoration: none; border: none; transition: background-color 0.15s; }
+    .btn-config-navy { background-color: #1a365d; }
+    .btn-config-navy:hover { background-color: #142847; }
+    .btn-config-slate { background-color: #4a5568; }
+    .btn-config-slate:hover { background-color: #3b4453; }
+    .btn-config-blue { background-color: #2b6cb0; }
+    .btn-config-blue:hover { background-color: #22548a; }
+
+    @media print {
+        body * { visibility: hidden; }
+        #v20_resultado_ia, #v20_resultado_ia * { visibility: visible; }
+        #v20_resultado_ia { position: absolute; left: 0; top: 0; width: 100%; max-height: none !important; overflow: visible !important; box-shadow: none !important; border: none !important; }
+        #v20_resultado_ia table { width: 100% !important; page-break-inside: avoid; }
+    }
+
+    .tarjeta-almacen-wrapper {
+        transition: all 0.2s ease;
+    }
+    .tarjeta-almacen-wrapper.oculto-completo {
+        display: none !important;
+    }
+    .btn-toggle-visibilidad {
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="v10-card p-4">
+    <h2 class="h4 fw-bold">SISTEMA INTELIGENTE PARA CONTROL DE INVENTARIO</h2>
+    <p class="text-muted small">Coordinación de Almacen de PT - MunchyGuard PT - Perfil de Acceso: <span class="badge bg-info text-dark">{{ current_user.rol }}</span></p>
+</div>
+
+{% if current_user.rol in ['ADMIN', 'CONSULTOR', 'GERENTE'] %}
+<div class="v10-card p-3 text-white mb-4" style="background: linear-gradient(90deg, #1e3a8a 0%, #2563eb 100%); border: none;">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h5 class="fw-bold mb-1"><i class="bi bi-cpu-fill"></i> Auditoría Logística Inteligente</h5>
+            <p class="small mb-0 text-white-50">Proyección matemática a 30 días basada en rotación de 3 meses para reabastecimiento nacional preventivo.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-light fw-bold text-primary shadow-sm" id="btnProcesarIA" onclick="ejecutarAuditoriaIA()">
+                <i class="bi bi-magic"></i> Analizar con IA
+            </button>
+            <button class="btn btn-danger fw-bold shadow-sm d-flex align-items-center gap-1" id="btnExportarPDF" onclick="exportarInformePDF()" disabled>
+                <i class="bi bi-file-earmark-pdf-fill"></i> Exportar a PDF
+            </button>
+        </div>
+    </div>
+    
+    <div id="v20_resultado_ia" class="mt-3 p-3 bg-white text-dark rounded shadow-sm d-none" style="border-left: 5px solid #f59e0b; max-height: 450px; overflow-y: auto;">
+        <div class="placeholder-glow" id="ia_loading">
+            <span class="placeholder col-12"></span>
+            <span class="placeholder col-10"></span>
+        </div>
+        <div id="ia_texto_informe" class="small"></div>
+    </div>
+</div>
+{% endif %}
+
+{% if current_user.rol in ['CONSULTOR', 'GERENTE'] %}
+
+    <div class="row g-2 mb-4">
+        <div class="col-12">
+            <a href="{{ url_for('analisis_abc') }}" class="btn-v10-modular bg-light border-primary text-primary text-center">
+                <i class="bi bi-pie-chart-fill text-primary mb-1"></i> <strong>Consultar Módulo Completo de Análisis ABC de Rotación</strong>
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="v10-card p-3 h-100">
+                <div class="v10-header-title mb-3"><i class="bi bi-pie-chart text-warning"></i> Monitoreo de Capacidades Físicas por CEDIS</div>
+                <div class="row g-2" style="max-height: 290px; overflow-y: auto;">
+                    {% for cod, datos in ocupacion_almacenes.items() %}
+                    <div class="col-12 text-center mb-2 tarjeta-almacen-wrapper" id="wrapper_gerencial_{{ cod }}">
+                        <div class="p-2 border rounded bg-light d-flex align-items-center justify-content-between">
+                            <div class="text-start text-truncate" style="max-width: 140px;">
+                                <span class="small fw-bold text-dark">{{ datos.nombre }}</span>
+                            </div>
+                            <div style="height: 55px; width: 55px; position: relative;">
+                                <canvas id="canvas_gerencial_{{ cod }}"></canvas>
+                            </div>
+                            <small class="text-muted text-end">Disp: <strong>{{ datos.disponible }}</strong></small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="v10-card h-100">
+                <div class="v10-header-title"><i class="bi bi-graph-down-arrow text-danger"></i> Top 5 Artículos Más Devueltos por Motivo</div>
+                <div class="p-3" style="height:290px; position: relative;">
+                    <canvas id="chartTopDevoluciones"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="v10-card h-100">
+                <div class="v10-header-title"><i class="bi bi-trophy text-success"></i> Top 5 Vendedores (Rango Elegido)</div>
+                <div class="p-3" style="height:290px; position: relative;">
+                    <canvas id="chartTopVendedoresGerencial"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% else %}
+
+    <div class="row g-2 mb-4">
+        {% if current_user.rol in ['ADMIN', 'OPERADOR'] %}
+        <div class="col-6 col-md-3"><a href="{{ url_for('trazabilidad_lote') }}" class="btn-v10-modular"><i class="bi bi-search"></i> Trazabilidad Lote/SKU</a></div>
+        <div class="col-6 col-md-3"><a href="{{ url_for('analisis_abc') }}" class="btn-v10-modular"><i class="bi bi-pie-chart-fill"></i> Análisis ABC</a></div>
+        <div class="col-6 col-md-3"><a href="{{ url_for('inventario_por_almacen') }}" class="btn-v10-modular"><i class="bi bi-building-fill"></i> Stock por Almacén</a></div>
+        <div class="col-6 col-md-3"><a href="{{ url_for('gestion_usuarios') }}" class="btn-v10-modular"><i class="bi bi-people-fill"></i> Gestión Usuarios</a></div>
+        {% endif %}
+    </div>
+
+    <div class="row g-2 mb-4">
+        <div class="col-6">
+            {% if current_user.rol in ['ADMIN', 'OPERADOR', 'RECEPTOR'] %}
+            <div class="d-flex flex-column gap-2">
+                <button class="btn btn-op-main btn-op-blue w-100" data-bs-toggle="modal" data-bs-target="#modalEntrada">REGISTRAR ENTRADA</button>
+                <a href="{{ url_for('plantilla_excel_entrada') }}" class="btn btn-sm btn-outline-primary fw-bold">
+                    <i class="bi bi-file-earmark-excel"></i> Descargar Plantilla Excel Entradas
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        <div class="col-6">
+            {% if current_user.rol in ['ADMIN', 'OPERADOR', 'DESPACHADOR'] %}
+            <div class="d-flex flex-column gap-2">
+                <button class="btn btn-op-main btn-op-red w-100" data-bs-toggle="modal" data-bs-target="#modalSalida">REGISTRAR DESPACHO</button>
+                <a href="{{ url_for('plantilla_excel_salida') }}" class="btn btn-sm btn-outline-danger fw-bold">
+                    <i class="bi bi-file-earmark-excel"></i> Descargar Plantilla Excel Salidas
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if current_user.rol in ['ADMIN', 'OPERADOR'] %}
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="v10-card p-3 h-100">
+                <div class="v10-header-title mb-3"><i class="bi bi-pie-chart text-warning"></i> Distribución de Ocupación Física por Almacén</div>
+                <div class="row g-2" style="max-height: 290px; overflow-y: auto;">
+                    {% for cod, datos in ocupacion_almacenes.items() %}
+                    <div class="col-12 text-center mb-2 tarjeta-almacen-wrapper" id="wrapper_operativo_{{ cod }}">
+                        <div class="p-2 border rounded bg-light d-flex align-items-center justify-content-between">
+                            <div class="text-start text-truncate" style="max-width: 140px;">
+                                <span class="small fw-bold text-dark">{{ datos.nombre }}</span>
+                            </div>
+                            <div style="height: 55px; width: 55px; position: relative;">
+                                <canvas id="canvas_operativo_{{ cod }}"></canvas>
+                            </div>
+                            <small class="text-muted text-end">Disp: <strong>{{ datos.disponible }}</strong></small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="v10-card h-100">
+                <div class="v10-header-title"><i class="bi bi-graph-down-arrow text-danger"></i> Top 5 Artículos Más Devueltos por Motivo</div>
+                <div class="p-3" style="height:290px; position: relative;">
+                    <canvas id="chartTopDevolucionesOperativo"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="v10-card h-100">
+                <div class="v10-header-title"><i class="bi bi-trophy text-success"></i> Top 5 Vendedores (Rango Elegido)</div>
+                <div class="p-3" style="height:290px; position: relative;">
+                    <canvas id="chartTopVendedoresOperativo"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% include 'modal_entrada.html' %}
+    {% include 'modal_salida.html' %}
+
+    {% if current_user.rol in ['ADMIN', 'OPERADOR'] %}
+    <div class="v10-card">
+        <div class="v10-header-title d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>Saldos en Inventario Actual por Lote (PEPS Activo)</span>
+            
+            <form method="GET" action="{{ url_for('index') }}" class="d-flex align-items-center gap-2">
+                <input type="hidden" name="fecha_inicio" value="{{ fecha_inicio }}">
+                <input type="hidden" name="fecha_fin" value="{{ fecha_fin }}">
+                <input type="hidden" name="limite" value="{{ limite }}">
+                
+                <select name="limite_saldos" class="form-select form-select-sm bg-light fw-bold text-dark" style="width: 170px;" onchange="this.form.submit()">
+                    <option value="10" {% if limite_saldos == '10' %}selected{% endif %}>Últimas 10 líneas</option>
+                    <option value="20" {% if limite_saldos == '20' %}selected{% endif %}>Últimas 20 líneas</option>
+                    <option value="30" {% if limite_saldos == '30' %}selected{% endif %}>Últimas 30 líneas</option>
+                    <option value="TODOS" {% if limite_saldos == 'TODOS' %}selected{% endif %}>Todas las líneas</option>
+                </select>
+            </form>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover text-center mb-0 align-middle">
+                <thead class="table-light fw-bold text-secondary">
+                    <tr>
+                        <th>Estatus</th>
+                        <th>SKU</th>
+                        <th>Producto</th>
+                        <th>Almacén</th>
+                        <th>Lote</th>
+                        <th>Vencimiento</th>
+                        <th>Cant.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in saldos_lotes %}
+                    <tr>
+                        <td>
+                            {% if item.alerta_color == 'rojo' %}
+                                <span class="badge bg-danger px-2 py-1 fw-bold" style="min-width: 80px;">ROJO</span>
+                            {% elif item.alerta_color == 'amarillo' %}
+                                <span class="badge bg-warning text-dark px-2 py-1 fw-bold" style="min-width: 80px;">AMARILLO</span>
+                            {% else %}
+                                <span class="badge bg-success px-2 py-1 fw-bold" style="min-width: 80px;">VERDE</span>
+                            {% endif %}
+                        </td>
+                        <td class="fw-semibold text-dark">{{ item.codigo_producto }}</td>
+                        <td class="text-start text-truncate fw-medium text-secondary" style="max-width: 220px;">
+                            {{ dict_productos.get(item.codigo_producto, 'No asignado') }}
+                        </td>
+                        <td>{{ item.almacen }}</td>
+                        <td><code class="text-magenta" style="color: #db2777;">{{ item.numero_lote }}</code></td>
+                        <td>{{ item.fecha_vencimiento }}</td>
+                        <td class="fw-bold text-dark">{{ item.cantidad }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-muted py-3">No existen saldos físicos disponibles en este momento.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+{% endif %}
+
+{% if current_user.rol in ['ADMIN', 'OPERADOR'] %}
+<div class="v10-card p-4">
+    <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-hourglass-split text-warning"></i> Historial de Últimos Movimientos
+    </h5>
+    
+    <div class="p-3 bg-light rounded border mb-3">
+        <form method="GET" action="{{ url_for('index') }}" class="row g-2 align-items-center">
+            <input type="hidden" name="limite_saldos" value="{{ limite_saldos }}">
+            <div class="col-6 col-sm-auto">
+                <input type="date" name="fecha_inicio" class="form-control form-control-sm" value="{{ fecha_inicio }}">
+            </div>
+            <div class="col-6 col-sm-auto">
+                <input type="date" name="fecha_fin" class="form-control form-control-sm" value="{{ fecha_fin }}">
+            </div>
+            <div class="col-6 col-sm-auto">
+                <select name="limite" class="form-select form-select-sm">
+                    <option value="10" {% if limite == '10' %}selected{% endif %}>10 registros</option>
+                    <option value="20" {% if limite == '20' %}selected{% endif %}>20 registros</option>
+                    <option value="50" {% if limite == '50' %}selected{% endif %}>50 registros</option>
+                    <option value="TODOS" {% if limite == 'TODOS' %}selected{% endif %}>Todos los registros</option>
+                </select>
+            </div>
+            <div class="col-6 col-sm-auto">
+                <button type="submit" class="btn btn-sm text-white fw-bold px-3" style="background-color: #1d3557;">
+                    <i class="bi bi-search-heart"></i> Filtrar
+                </button>
+            </div>
+        </form>
+        
+        <div class="d-flex justify-content-end mt-2 mt-sm-0" style="position: relative; top: -32px; height: 0;">
+            <form action="{{ url_for('exportar_seleccion') }}" method="POST">
+                <input type="hidden" name="fecha_inicio_exp" value="{{ fecha_inicio }}">
+                <input type="hidden" name="fecha_fin_exp" value="{{ fecha_fin }}">
+                <input type="hidden" name="limite_exp" value="{{ limite }}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary fw-bold px-3">
+                    <i class="bi bi-file-earmark-excel text-success"></i> Exportar a Excel
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-hover text-center small align-middle mb-0">
+            <thead class="table-light fw-bold text-secondary">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Operación</th>
+                    <th>Motivo</th>
+                    <th>Detalle Dev.</th>
+                    <th>SKU</th>
+                    <th>Producto</th>
+                    <th>Origen</th>
+                    <th>Destino</th>
+                    <th>Lote</th>
+                    <th>Vencimiento</th>
+                    <th>Cantidad (Unds)</th>
+                    <th>Documento</th>
+                    <th>Usuario</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in movimientos %}
+                <tr>
+                    <td>{{ m.fecha_sistema.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td>
+                        <span class="badge {% if m.tipo_operacion == 'ENTRADA' %}bg-primary{% else %}bg-danger{% endif %}">
+                            {{ m.tipo_operacion }}
+                        </span>
+                    </td>
+                    <td><span class="fw-medium">{{ m.tipo_motivo }}</span></td>
+                    <td><em class="text-muted">{{ m.detalle_devolucion or '--' }}</em></td>
+                    <td class="fw-bold">{{ m.codigo_producto }}</td>
+                    <td class="text-start text-truncate" style="max-width: 150px;">{{ dict_productos.get(m.codigo_producto, '--') }}</td>
+                    <td><span class="badge bg-secondary">{{ m.almacen_origen or '--' }}</span></td>
+                    <td><span class="badge bg-dark">{{ m.almacen_destino or '--' }}</span></td>
+                    <td><code>{{ m.numero_lote }}</code></td>
+                    <td>{{ m.fecha_vencimiento }}</td>
+                    <td class="fw-bold text-dark">{{ m.cantidad }}</td>
+                    <td><u>{{ m.referencia_documento }}</u></td>
+                    <td><small class="text-muted">{{ m.usuario_registro or 'Sistema' }}</small></td>
+                    <td>
+                        {% if current_user.rol == 'ADMIN' %}
+                        <form action="{{ url_for('eliminar_movimiento_kardex', id=m.id) }}" method="POST" onsubmit="return confirm('¿Está completamente seguro de eliminar esta traza histórica?');" style="display:inline;">
+                            <button type="submit" class="btn btn-sm text-danger p-0 border-0 bg-transparent" title="Eliminar">
+                                <i class="bi bi-trash3-fill"></i>
+                            </button>
+                        </form>
+                        {% else %}
+                        <i class="bi bi-lock-fill text-muted"></i>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="14" class="text-muted py-3">No se encontraron movimientos registrados en este rango de selección.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if current_user.rol == 'ADMIN' %}
+<div class="v10-card p-4">
+    <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-box-arrow-in-down-left text-primary"></i> Centro de Carga Masiva (Importación desde Excel)
+    </h5>
+    
+    <!-- PESTAÑAS DE SELECCIÓN DE MAESTRO -->
+    <div class="d-flex flex-wrap gap-2 mb-3 border-bottom pb-3">
+        <button type="button" id="tab_entrada" class="btn btn-dark btn-sm px-3 py-2 text-white" onclick="seleccionarMaestroV10('entrada', 'TIPO_MOTIVO, CODIGO_PRODUCTO, ALMACEN_DESTINO, ALMACEN_ORIGEN, NUMERO_LOTE, FECHA_VENCIMIENTO, CANTIDAD, REFERENCIA_DOCUMENTO, DETALLE_DEVOLUCION', '{{ url_for('plantilla_excel_entrada') }}')">
+            <i class="bi bi-box-arrow-in-right"></i> Entradas
+        </button>
+        <button type="button" id="tab_salida" class="btn btn-light btn-sm px-3 py-2 border text-dark" onclick="seleccionarMaestroV10('salida', 'TIPO_MOTIVO, CODIGO_PRODUCTO, ALMACEN_ORIGEN, ALMACEN_DESTINO, CODIGO_CLIENTE, CODIGO_VENDEDOR, NUMERO_LOTE, FECHA_VENCIMIENTO, CANTIDAD, REFERENCIA_DOCUMENTO', '{{ url_for('plantilla_excel_salida') }}')">
+            <i class="bi bi-box-arrow-right"></i> Salidas
+        </button>
+        <button type="button" id="tab_almacen" class="btn btn-light btn-sm px-3 py-2 border text-dark" onclick="seleccionarMaestroV10('almacen', 'CODIGO, NOMBRE, CAPACIDAD', '{{ url_for('plantilla_excel_almacen') }}')">
+            <i class="bi bi-building"></i> Almacenes
+        </button>
+        <button type="button" id="tab_producto" class="btn btn-light btn-sm px-3 py-2 border text-dark" onclick="seleccionarMaestroV10('producto', 'CODIGO, NOMBRE, DIAS_CRITICOS, DIAS_ALERTA', '{{ url_for('plantilla_excel_producto') }}')">
+            <i class="bi bi-box-seam"></i> Productos
+        </button>
+        <button type="button" id="tab_cliente" class="btn btn-light btn-sm px-3 py-2 border text-dark" onclick="seleccionarMaestroV10('cliente', 'CODIGO, NOMBRE', '{{ url_for('plantilla_excel_cliente') }}')">
+            <i class="bi bi-people"></i> Clientes
+        </button>
+        <button type="button" id="tab_vendedor" class="btn btn-light btn-sm px-3 py-2 border text-dark" onclick="seleccionarMaestroV10('vendedor', 'CODIGO, NOMBRE', '{{ url_for('plantilla_excel_vendedor') }}')">
+            <i class="bi bi-person-badge"></i> Vendedores
+        </button>
+    </div>
+
+    <!-- FORMULARIO DE CARGA Y BOTÓN DINÁMICO DE DESCARGA -->
+    <form action="{{ url_for('importar_excel') }}" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="tipo_maestro" id="v10_tipo_maestro" value="entrada">
+        
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <p class="text-muted small mb-0">
+                Columnas requeridas en la hoja: <strong id="v10_columnas_instruccion">TIPO_MOTIVO, CODIGO_PRODUCTO, ALMACEN_DESTINO, ALMACEN_ORIGEN, NUMERO_LOTE, FECHA_VENCIMIENTO, CANTIDAD, REFERENCIA_DOCUMENTO, DETALLE_DEVOLUCION</strong>
+            </p>
+            <!-- BOTÓN DINÁMICO QUE DESCARGA LA PLANTILLA DE LA PESTAÑA ACTIVA -->
+            <a href="{{ url_for('plantilla_excel_entrada') }}" id="btn_descargar_plantilla_dinamica" class="btn btn-sm btn-outline-success fw-bold">
+                <i class="bi bi-file-earmark-excel-fill me-1"></i> Descargar Plantilla Excel
+            </a>
+        </div>
+
+        <div class="d-flex align-items-center flex-wrap gap-3">
+            <input type="file" name="archivo_excel" class="form-control form-control-sm bg-white w-auto" accept=".xlsx, .xls" required>
+            <button type="submit" class="btn btn-sm px-4 text-white fw-bold" style="background-color: #1d3557;">Procesar Carga</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if current_user.rol == 'ADMIN' %}
+<div class="v10-card p-4">
+    <h4 class="fw-bold mb-3 text-dark" style="font-size: 1.3rem;">Módulo de Configuración del Sistema</h4>
+
+    <div class="p-4 border rounded bg-white mb-4 shadow-sm">
+        <h6 class="fw-bold mb-3 text-secondary d-flex align-items-center gap-2" style="font-size: 0.95rem;">
+            <i class="bi bi-building-gear"></i> Control de Almacenes y Capacidades Físicas (Visibilidad del Tablero)
+        </h6>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered text-center align-middle small mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Código Almacén</th>
+                        <th>Nombre / Ubicación</th>
+                        <th>Capacidad Máxima</th>
+                        <th>Acción de Control</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in almacenes %}
+                    <tr>
+                        <td class="fw-bold">{{ a.codigo }}</td>
+                        <td>{{ a.nombre }}</td>
+                        <td>{{ a.capacidad_maxima|int }} Unds</td>
+                        <td>
+                            <i class="bi bi-eye btn-toggle-visibilidad text-primary fs-5" 
+                               id="eye_control_{{ a.codigo }}" 
+                               onclick="conmutarVisibilidadAlmacenGlobal('{{ a.codigo }}')" 
+                               title="Mostrar/Ocultar del Tablero Superior"></i>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 mt-2">
+        <a href="{{ url_for('gestion_almacen_vista') }}" class="btn-config-v10 btn-config-navy">
+            <i class="bi bi-building"></i> Almacenes (Capacidades)
+        </a>
+        <a href="{{ url_for('gestion_producto_vista') }}" class="btn-config-v10 btn-config-navy">
+            <i class="bi bi-box-seam"></i> Productos
+        </a>
+        <a href="{{ url_for('gestion_cliente_vista') }}" class="btn-config-v10 btn-config-slate">
+            <i class="bi bi-people"></i> Clientes
+        </a>
+        <a href="{{ url_for('gestion_vendedores_vista') }}" class="btn-config-v10 btn-config-slate">
+            <i class="bi bi-person-badge"></i> Vendedores
+        </a>
+        <a href="{{ url_for('gestion_usuarios') }}" class="btn-config-v10 btn-config-blue">
+            <i class="bi bi-person-gear"></i> Gestión de Usuarios
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function conmutarVisibilidadAlmacenGlobal(codigo) {
+    let almacenesOcultos = JSON.parse(localStorage.getItem('munchy_almacenes_ocultos')) || [];
+    
+    if (almacenesOcultos.includes(codigo)) {
+        almacenesOcultos = almacenesOcultos.filter(c => c !== codigo);
+    } else {
+        almacenesOcultos.push(codigo);
+    }
+    
+    localStorage.setItem('munchy_almacenes_ocultos', JSON.stringify(almacenesOcultos));
+    aplicarEstilosVisibilidadGlobal();
+}
+
+function aplicarEstilosVisibilidadGlobal() {
+    const almacenesOcultos = JSON.parse(localStorage.getItem('munchy_almacenes_ocultos')) || [];
+    const codigosAlmacenes = [{% for a in almacenes %}"{{ a.codigo }}",{% endfor %}];
+    
+    codigosAlmacenes.forEach(codigo => {
+        const wrapperGerencial = document.getElementById(`wrapper_gerencial_${codigo}`);
+        const wrapperOperativo = document.getElementById(`wrapper_operativo_${codigo}`);
+        const iconoControl = document.getElementById(`eye_control_${codigo}`);
+        
+        const ocultar = almacenesOcultos.includes(codigo);
+        
+        if (wrapperGerencial) {
+            if (ocultar) wrapperGerencial.classList.add('oculto-completo');
+            else wrapperGerencial.classList.remove('oculto-completo');
+        }
+        
+        if (wrapperOperativo) {
+            if (ocultar) wrapperOperativo.classList.add('oculto-completo');
+            else wrapperOperativo.classList.remove('oculto-completo');
+        }
+        
+        if (iconoControl) {
+            if (ocultar) {
+                iconoControl.classList.remove('bi-eye', 'text-primary');
+                iconoControl.classList.add('bi-eye-slash', 'text-muted');
+            } else {
+                iconoControl.classList.remove('bi-eye-slash', 'text-muted');
+                iconoControl.classList.add('bi-eye', 'text-primary');
+            }
+        }
+    });
+}
+
+{% for cod, datos in ocupacion_almacenes.items() %}
+    (function() {
+        const actual = {{ datos.actual }};
+        const disponible = {{ datos.disponible }};
+        const pct = {{ datos.porcentaje }};
+        
+        let colorSaturacion = '#10b981';
+        
+        if (pct === 0) {
+            colorSaturacion = '#9ca3af';
+        } else if (pct > 50 && pct <= 75) {
+            colorSaturacion = '#f59e0b';
+        } else if (pct > 75) {
+            colorSaturacion = '#ef4444';
+        }
+
+        const renderizarPie = (idCanvas) => {
+            const ctx = document.getElementById(idCanvas);
+            if (ctx) {
+                new Chart(ctx.getContext('2d'), {
+                    type: 'pie',
+                    data: {
+                        labels: ['Ocupado', 'Disponible'],
+                        datasets: [{
+                            data: [actual, disponible],
+                            backgroundColor: [colorSaturacion, '#e2e8f0'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        plugins: { 
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label + ': ' + context.raw + ' Unds (' + pct + '%)';
+                                    }
+                                }
+                            }
+                        } 
+                    }
+                });
+            }
+        };
+
+        renderizarPie('canvas_gerencial_{{ cod }}');
+        renderizarPie('canvas_operativo_{{ cod }}');
+    })();
+{% endfor %}
+
+const labelsDevoluciones = {{ labels_devoluciones|tojson }};
+const datosDevoluciones = {{ cantidades_devoluciones|tojson }};
+
+function crearChartDevoluciones(idCanvas) {
+    const ctx = document.getElementById(idCanvas);
+    if (ctx) {
+        new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labelsDevoluciones,
+                datasets: [{ label: 'Unidades Devueltas', data: datosDevoluciones, backgroundColor: '#dc2626', borderRadius: 4, borderWidth: 1 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+        });
+    }
+}
+crearChartDevoluciones('chartTopDevoluciones');
+crearChartDevoluciones('chartTopDevolucionesOperativo');
+
+const labelsVendedores = {{ labels_vendedores|tojson }};
+const datosVendedores = {{ cantidades_vendedores|tojson }};
+
+function crearChartVendedores(idCanvas) {
+    const ctx = document.getElementById(idCanvas);
+    if (ctx) {
+        new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labelsVendedores,
+                datasets: [{ label: 'Unidades Facturadas', data: datosVendedores, backgroundColor: '#10b981', borderRadius: 4 }]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                indexAxis: 'y', 
+                plugins: { legend: { display: false } },
+                scales: { 
+                    x: { beginAtZero: true },
+                    y: { ticks: { font: { size: 9 } } } 
+                }
+            }
+        });
+    }
+}
+crearChartVendedores('chartTopVendedoresGerencial');
+crearChartVendedores('chartTopVendedoresOperativo');
+
+/* FUNCIÓN DE CAMBIO DINÁMICO DE MAESTROS Y PLANTILLAS EXCEL */
+function seleccionarMaestroV10(tipo, inst, urlPlantilla) {
+    document.getElementById('v10_tipo_maestro').value = tipo;
+    document.getElementById('v10_columnas_instruccion').innerText = inst;
+    
+    // Actualiza la URL del botón de descarga según la pestaña
+    const btnDescarga = document.getElementById('btn_descargar_plantilla_dinamica');
+    if (btnDescarga) {
+        btnDescarga.setAttribute('href', urlPlantilla);
+    }
+
+    const pestañas = ['entrada', 'salida', 'almacen', 'producto', 'cliente', 'vendedor'];
+    pestañas.forEach(p => {
+        const btn = document.getElementById('tab_' + p);
+        if (btn) {
+            if (p === tipo) { 
+                btn.classList.remove('btn-light', 'text-dark', 'border'); 
+                btn.classList.add('btn-dark', 'text-white'); 
+            } else { 
+                btn.classList.remove('btn-dark', 'text-white'); 
+                btn.classList.add('btn-light', 'text-dark', 'border'); 
+            }
+        }
+    });
+}
+
+function ejecutarAuditoriaIA() {
+    const contenedor = document.getElementById('v20_resultado_ia');
+    const loading = document.getElementById('ia_loading');
+    const texto = document.getElementById('ia_texto_informe');
+    const btn = document.getElementById('btnProcesarIA');
+    const btnPDF = document.getElementById('btnExportarPDF');
+    
+    contenedor.classList.remove('d-none');
+    loading.classList.remove('d-none');
+    texto.innerHTML = "";
+    btn.disabled = true;
+    if (btnPDF) btnPDF.disabled = true;
+
+    fetch('/operaciones/ia_analisis_gerencial', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            loading.classList.add('d-none');
+            btn.disabled = false;
+            if (data.success) {
+                texto.innerHTML = data.analisis;
+                if (btnPDF) btnPDF.disabled = false;
+            } else {
+                texto.innerText = "❌ Error: " + data.error;
+            }
+        })
+        .catch(err => {
+            loading.classList.add('d-none');
+            btn.disabled = false;
+            texto.innerText = "❌ Error de conexión con el servidor.";
+        });
+}
+
+function exportarInformePDF() {
+    window.print();
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    aplicarEstilosVisibilidadGlobal();
+});
+</script>
+{% endblock %}

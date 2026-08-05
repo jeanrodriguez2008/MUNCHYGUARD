@@ -1,0 +1,127 @@
+{% extends 'layout.html' %}
+
+{% block title %}Análisis ABC de Rotación - MunchyGuard PT{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="h3 mb-0 text-gray-800 fw-bold">
+            <i class="bi bi-pie-chart-fill text-primary me-2"></i>Clasificación y Análisis ABC (Pareto)
+        </h2>
+        <p class="text-muted small mb-0">
+            Categorización de rotación logística por volumen de despacho (Clase A: 80%, Clase B: 15%, Clase C: 5%).
+        </p>
+    </div>
+
+    <!-- FILTRO INTELIGENTE DE SELECCIÓN POR ALMACÉN -->
+    <form method="GET" action="{{ url_for('analisis_abc') }}" class="d-flex align-items-center gap-2">
+        <label for="almacen_id" class="fw-bold small text-secondary text-nowrap mb-0">
+            <i class="bi bi-funnel-fill text-primary"></i> Filtrar por CEDIS:
+        </label>
+        <select name="almacen_id" id="almacen_id" class="form-select form-select-sm fw-bold border-primary shadow-sm" style="min-width: 220px;" onchange="this.form.submit()">
+            <option value="TODOS" {% if almacen_seleccionado == 'TODOS' %}selected{% endif %}>🌐 Todos los Almacenes (Nacional)</option>
+            {% for a in almacenes %}
+            <option value="{{ a.codigo }}" {% if almacen_seleccionado == a.codigo %}selected{% endif %}>
+                🏬 {{ a.nombre }} ({{ a.codigo }})
+            </option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+<!-- Tarjetas Resumen de Clasificación -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="p-3 bg-white border rounded shadow-sm" style="border-left: 4px solid #ef4444 !important;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="badge bg-danger text-white mb-1">CLASE A (Alta Rotación)</span>
+                    <h4 class="fw-bold mb-0 text-dark">
+                        {{ abc_datos | selectattr('categoria', 'equalto', 'A') | list | length }} SKUs
+                    </h4>
+                </div>
+                <i class="bi bi-fire text-danger fs-1"></i>
+            </div>
+            <small class="text-muted d-block mt-2">Representan el 80% del volumen total desincorporado.</small>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="p-3 bg-white border rounded shadow-sm" style="border-left: 4px solid #f59e0b !important;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="badge bg-warning text-dark mb-1">CLASE B (Rotación Media)</span>
+                    <h4 class="fw-bold mb-0 text-dark">
+                        {{ abc_datos | selectattr('categoria', 'equalto', 'B') | list | length }} SKUs
+                    </h4>
+                </div>
+                <i class="bi bi-box-seam text-warning fs-1"></i>
+            </div>
+            <small class="text-muted d-block mt-2">Representan el 15% del volumen desincorporado.</small>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="p-3 bg-white border rounded shadow-sm" style="border-left: 4px solid #6b7280 !important;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="badge bg-secondary text-white mb-1">CLASE C (Baja Rotación)</span>
+                    <h4 class="fw-bold mb-0 text-dark">
+                        {{ abc_datos | selectattr('categoria', 'equalto', 'C') | list | length }} SKUs
+                    </h4>
+                </div>
+                <i class="bi bi-archive text-secondary fs-1"></i>
+            </div>
+            <small class="text-muted d-block mt-2">Representan el 5% sobrante del total desincorporado.</small>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Clasificación Pareto -->
+<div class="card shadow-sm border-0 mb-4" style="border-radius: 8px;">
+    <div class="card-header bg-dark text-white p-3 d-flex justify-content-between align-items-center">
+        <span class="fw-bold"><i class="bi bi-table me-2"></i>Matriz de Clasificación Pareto</span>
+        <span class="badge bg-info text-dark font-monospace">
+            Volumen Total Analizado: {{ "{:,}".format(total_general).replace(',', '.') }} Unds
+        </span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle text-center mb-0">
+                <thead class="table-light text-secondary small fw-bold">
+                    <tr>
+                        <th>Clasificación</th>
+                        <th>SKU</th>
+                        <th>Descripción del Producto</th>
+                        <th>Total Despachado (Unds)</th>
+                        <th>Participación (%)</th>
+                        <th>Acumulado (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in abc_datos %}
+                    <tr>
+                        <td>
+                            {% if item.categoria == 'A' %}
+                                <span class="badge bg-danger px-3 py-1 fw-bold">CLASE A</span>
+                            {% elif item.categoria == 'B' %}
+                                <span class="badge bg-warning text-dark px-3 py-1 fw-bold">CLASE B</span>
+                            {% else %}
+                                <span class="badge bg-secondary px-3 py-1 fw-bold">CLASE C</span>
+                            {% endif %}
+                        </td>
+                        <td class="fw-bold text-dark">{{ item.codigo_producto }}</td>
+                        <td class="text-start text-truncate" style="max-width: 250px;">{{ item.nombre_producto }}</td>
+                        <td class="fw-bold font-monospace">{{ "{:,}".format(item.total_salidas).replace(',', '.') }}</td>
+                        <td>{{ "%.2f"|format(item.porcentaje) }}%</td>
+                        <td class="fw-bold text-primary">{{ "%.2f"|format(item.porcentaje_acumulado) }}%</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-muted py-4">No se registran despachos históricos para el almacén seleccionado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

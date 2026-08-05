@@ -1,0 +1,65 @@
+<div class="v10-card p-4">
+    <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-box-arrow-in-down-left text-primary"></i> Centro de Carga Masiva (Importación desde Excel)
+    </h5>
+    
+    <!-- Botonera de Pestañas Estilo V10 (image_b7e344.png) -->
+    <div class="d-flex flex-wrap gap-2 mb-3 border-bottom pb-3">
+        <button type="button" id="tab_almacen" class="btn btn-dark btn-sm px-3 py-2 text-white" onclick="seleccionarMaestroV10('almacen', 'Codigo, Nombre, y opcional: Capacidad.')">
+            <i class="bi bi-building"></i> Almacenes
+        </button>
+        <button type="button" id="tab_producto" class="btn btn-light btn-sm px-3 py-2 border text-dark" onclick="seleccionarMaestroV10('producto', 'Codigo, Nombre (Articulo).')">
+            <i class="bi bi-box-seam"></i> Productos
+        </button>
+        <button type="button" id="tab_cliente" class="btn btn-light btn-sm px-3 py-2 border text-dark" onclick="seleccionarMaestroV10('cliente', 'Codigo, Nombre (Razon Social).')">
+            <i class="bi bi-people"></i> Clientes
+        </button>
+        <button type="button" id="tab_vendedor" class="btn btn-light btn-sm px-3 py-2 border text-dark" onclick="seleccionarMaestroV10('vendedor', 'Codigo, Nombre.')">
+            <i class="bi bi-person-badge"></i> Vendedores
+        </button>
+    </div>
+
+    <!-- Formulario Dinámico Sincronizado con app.py -->
+    <form action="{{ url_for('importar_excel') }}" method="POST" enctype="multipart/form-data">
+        <!-- Campo oculto que le dice al servidor qué maestro se está cargando -->
+        <input type="hidden" name="tipo_maestro" id="v10_tipo_maestro" value="almacen">
+
+        <!-- Texto explicativo dinámico de columnas (image_b7e344.png) -->
+        <p class="text-muted small mb-3">
+            Columnas requeridas en la hoja: <strong id="v10_columnas_instruccion">Codigo, Nombre, y opcional: Capacidad.</strong>
+        </p>
+
+        <!-- Controles de Carga -->
+        <div class="d-flex align-items-center flex-wrap gap-3">
+            <div class="flex-grow-1">
+                <input type="file" name="archivo_excel" class="form-control form-control-sm bg-white" accept=".xlsx, .xls" required>
+            </div>
+            <button type="submit" class="btn btn-sm px-4 text-white fw-bold" style="background-color: #1d3557;">
+                Procesar Carga
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function seleccionarMaestroV10(tipo, instrucciones) {
+    // 1. Actualizar el valor del input oculto para el backend
+    document.getElementById('v10_tipo_maestro').value = tipo;
+    
+    // 2. Modificar el texto instructivo de las columnas requeridas como en la imagen
+    document.getElementById('v10_columnas_instruccion').innerText = instrucciones;
+
+    // 3. Cambiar estilos visuales de los botones (Activo vs Inactivo)
+    const pestañas = ['almacen', 'producto', 'cliente', 'vendedor'];
+    pestañas.forEach(p => {
+        const btn = document.getElementById('tab_' + p);
+        if (p === tipo) {
+            btn.classList.remove('btn-light', 'text-dark', 'border');
+            btn.classList.add('btn-dark', 'text-white');
+        } else {
+            btn.classList.remove('btn-dark', 'text-white');
+            btn.classList.add('btn-light', 'text-dark', 'border');
+        }
+    });
+}
+</script>

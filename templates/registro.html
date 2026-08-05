@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Usuario - MunchyGuard PT</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #0f172a;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            padding: 20px;
+        }
+        .register-card {
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 500px;
+            padding: 2.5rem 2rem;
+            position: relative;
+        }
+        .register-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 10%;
+            right: 10%;
+            height: 4px;
+            background-color: #dc2626;
+            border-radius: 2px;
+        }
+        .brand-logo { max-width: 160px; display: block; margin: 0 auto 0.5rem auto; }
+        .subtitle { color: #475569; font-size: 0.88rem; font-weight: 500; text-align: center; margin-bottom: 1.5rem; border-top: 2px solid #dc2626; padding-top: 0.8rem; }
+        .btn-munchy { background-color: #1e3a8a; color: #ffffff; font-weight: 700; padding: 0.75rem; border-radius: 8px; border: none; }
+        .btn-munchy:hover { background-color: #172554; color: #ffffff; }
+    </style>
+</head>
+<body>
+
+<div class="register-card">
+    <div class="text-center">
+        <!-- Logo Local -->
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Munchy Logo" class="brand-logo">
+        <div class="subtitle">Registro de Nuevo Usuario Operacional</div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show small py-2" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form action="{{ url_for('registro') }}" method="POST" autocomplete="off">
+        <div class="row g-2 mb-2">
+            <div class="col-md-7">
+                <label class="form-label small fw-bold text-secondary mb-1">Nombre Completo</label>
+                <input type="text" name="nombre_completo" class="form-control form-control-sm" required placeholder="Ej: Carlos Mendoza">
+            </div>
+            <div class="col-md-5">
+                <label class="form-label small fw-bold text-secondary mb-1">Cédula / RIF</label>
+                <input type="text" name="cedula_rif" class="form-control form-control-sm" required placeholder="V-12345678">
+            </div>
+        </div>
+
+        <div class="mb-2">
+            <label class="form-label small fw-bold text-secondary mb-1">Correo Electrónico</label>
+            <input type="email" name="correo" class="form-control form-control-sm" required placeholder="usuario@alimentosmunchy.com">
+        </div>
+
+        <div class="row g-2 mb-2">
+            <div class="col-md-6">
+                <label class="form-label small fw-bold text-secondary mb-1">Usuario de Acceso</label>
+                <input type="text" name="username" class="form-control form-control-sm" required placeholder="cmendoza">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-bold text-secondary mb-1">Contraseña</label>
+                <input type="password" name="password" class="form-control form-control-sm" required placeholder="••••••••">
+            </div>
+        </div>
+
+        <hr class="my-3">
+
+        <div class="mb-2">
+            <label class="form-label small fw-bold text-secondary mb-1">Pregunta de Seguridad</label>
+            <select name="pregunta_seguridad" class="form-select form-select-sm" required>
+                <option value="" disabled selected>Seleccione una pregunta...</option>
+                <option value="¿Nombre de tu primera mascota?">¿Nombre de tu primera mascota?</option>
+                <option value="¿Nombre de tu escuela primaria?">¿Nombre de tu escuela primaria?</option>
+                <option value="¿Ciudad donde naciste?">¿Ciudad donde naciste?</option>
+                <option value="¿Marca de tu primer vehículo?">¿Marca de tu primer vehículo?</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary mb-1">Respuesta Secreta</label>
+            <input type="text" name="respuesta_seguridad" class="form-control form-control-sm" required placeholder="Tu respuesta para recuperar contraseña">
+        </div>
+
+        <div class="d-grid gap-2 mt-4">
+            <button type="submit" class="btn btn-munchy">
+                <i class="bi bi-person-check-fill me-1"></i> Completar Registro
+            </button>
+            <a href="{{ url_for('login') }}" class="btn btn-sm btn-outline-secondary fw-bold">
+                <i class="bi bi-arrow-left me-1"></i> Regresar al Inicio de Sesión
+            </a>
+        </div>
+    </form>
+
+    <div class="text-center text-muted small mt-3">
+        Desarrollado por: <strong>Gerencia de Cadena de Suministros</strong>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.bundle.min.css"></script>
+</body>
+</html>

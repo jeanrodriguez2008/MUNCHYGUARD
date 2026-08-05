@@ -1,0 +1,346 @@
+<div class="modal fade" id="modalSalida" tabindex="-1" aria-labelledby="modalSalidaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 12px; overflow: hidden;">
+            
+            <div class="modal-header text-white px-4" style="background-color: #dc2626;">
+                <h5 class="modal-title fw-bold" id="modalSalidaLabel" style="font-size: 1.1rem;">
+                    <i class="bi bi-box-arrow-up"></i> Formulario de Despacho de Producto Terminado (QR Activo)
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form action="{{ url_for('registrar_salida') }}" method="POST" autocomplete="off">
+                <div class="modal-body p-4">
+                    
+                    <div class="p-3 border border-danger rounded bg-light mb-4" style="border-style: dashed !important;">
+                        <label class="form-label small fw-bold text-danger"><i class="bi bi-camera-fill"></i> Escanear Código QR (Despachos):</label>
+                        <input type="text" id="qr_salida_scanner" class="form-control form-control-lg bg-white" oninput="this.value = this.value.upper()" placeholder="Haga clic aquí antes de escanear el QR...">
+                        <span class="text-muted d-block mt-1" style="font-size: 0.75rem;">Formato esperado: Código|Descripción|Lote|DD/MM/AAAA</span>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark">Tipo de Salida:</label>
+                            <select name="tipo_motivo" id="v10_motivo_salida" class="form-select" onchange="evaluarCamposDinamicosSalida()" required>
+                                <option value="FACTURACION" selected>Facturación</option>
+                                <option value="TRASLADO">Traslado entre Almacenes</option>
+                                <option value="CONSIGNACION">Consignación</option>
+                                <option value="AJUSTE">Ajuste de Inventario (-)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6" style="position: relative;">
+                            <label class="form-label small fw-bold text-dark"><i class="bi bi-search"></i> Seleccionar Producto a Despachar:</label>
+                            <input type="text" id="v10_busqueda_producto_salida" class="form-control" placeholder="Ej: SKU o Nombre..." oninput="this.value = this.value.upper(); filtrarDropdownSalida('v10_busqueda_producto_salida', 'v10_dropdown_productos_salida')" onfocus="filtrarDropdownSalida('v10_busqueda_producto_salida', 'v10_dropdown_productos_salida')">
+                            <input type="hidden" name="codigo_producto" id="codigo_producto_salida_input" required>
+                            <div id="v10_dropdown_productos_salida" class="dropdown-menu position-absolute w-100 shadow" style="max-height: 200px; overflow-y: auto; z-index: 1060;">
+                                {% for p in productos %}
+                                <button type="button" class="dropdown-item small py-2" onclick="seleccionarDatoSalidaCustom('codigo_producto_salida_input', 'v10_busqueda_producto_salida', '{{ p.codigo }}', '{{ p.codigo }} - {{ p.articulo }}', 'v10_dropdown_productos_salida', true, '{{ p.codigo }}', '{{ p.articulo }}')">
+                                    <strong>{{ p.codigo }}</strong> - {{ p.articulo }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="p-2 border rounded bg-light text-center fw-semibold text-secondary d-flex justify-content-center gap-3 align-items-center" style="font-size: 0.9rem;">
+                                <span id="visual_salida_sku">--</span>
+                                <span class="text-muted">|</span>
+                                <span id="visual_salida_articulo">Ningún producto seleccionado</span>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6" id="contenedor_salida_origen" style="position: relative;">
+                            <label class="form-label small fw-bold text-dark">Almacén de Origen (Emisor):</label>
+                            <input type="text" id="busqueda_salida_origen" class="form-control text-uppercase" placeholder="Escriba código o nombre..." oninput="this.value = this.value.upper(); filtrarDropdownSalida('busqueda_salida_origen', 'dropdown_salida_origen')" onfocus="filtrarDropdownSalida('busqueda_salida_origen', 'dropdown_salida_origen')">
+                            <input type="hidden" name="almacen_origen" id="select_salida_origen">
+                            <div id="dropdown_salida_origen" class="dropdown-menu position-absolute w-100 shadow" style="max-height: 200px; overflow-y: auto; z-index: 1060;">
+                                {% for a in almacenes %}
+                                <button type="button" class="dropdown-item small py-2" onclick="seleccionarDatoSalidaCustom('select_salida_origen', 'busqueda_salida_origen', '{{ a.codigo }}', '{{ a.nombre }}', 'dropdown_salida_origen', false); validarAlmacenesDiferentesSalida();">
+                                    <strong>{{ a.codigo }}</strong> - {{ a.nombre }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 d-none" id="contenedor_salida_destino" style="position: relative;">
+                            <label class="form-label small fw-bold text-dark">Almacén Destino (Receptor):</label>
+                            <input type="text" id="busqueda_salida_destino" class="form-control text-uppercase" placeholder="Escriba código o nombre..." oninput="this.value = this.value.upper(); filtrarDropdownSalida('busqueda_salida_destino', 'dropdown_salida_destino')" onfocus="filtrarDropdownSalida('busqueda_salida_destino', 'dropdown_salida_destino')">
+                            <input type="hidden" name="almacen_destino" id="select_salida_destino">
+                            <div id="dropdown_salida_destino" class="dropdown-menu position-absolute w-100 shadow" style="max-height: 200px; overflow-y: auto; z-index: 1060;">
+                                {% for a in almacenes %}
+                                <button type="button" class="dropdown-item small py-2" onclick="seleccionarDatoSalidaCustom('select_salida_destino', 'busqueda_salida_destino', '{{ a.codigo }}', '{{ a.nombre }}', 'dropdown_salida_destino', false); validarAlmacenesDiferentesSalida();">
+                                    <strong>{{ a.codigo }}</strong> - {{ a.nombre }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6" id="contenedor_salida_cliente" style="position: relative;">
+                            <label class="form-label small fw-bold text-dark">Cliente (Filtro Inteligente):</label>
+                            <input type="text" id="busqueda_salida_cliente" class="form-control" placeholder="Escriba código o Razón Social..." oninput="this.value = this.value.upper(); filtrarDropdownSalida('busqueda_salida_cliente', 'dropdown_salida_cliente')" onfocus="filtrarDropdownSalida('busqueda_salida_cliente', 'dropdown_salida_cliente')">
+                            <input type="hidden" name="codigo_cliente" id="select_salida_cliente">
+                            <div id="dropdown_salida_cliente" class="dropdown-menu position-absolute w-100 shadow" style="max-height: 200px; overflow-y: auto; z-index: 1060;">
+                                {% for c in clientes %}
+                                <button type="button" class="dropdown-item small py-2" onclick="seleccionarDatoSalidaCustom('select_salida_cliente', 'busqueda_salida_cliente', '{{ c.codigo }}', '{{ c.razon_social }}', 'dropdown_salida_cliente', false)">
+                                    <strong>{{ c.codigo }}</strong> - {{ c.razon_social }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6" id="contenedor_salida_vendedor" style="position: relative;">
+                            <label class="form-label small fw-bold text-dark">Vendedor Asignado:</label>
+                            <input type="text" id="busqueda_salida_vendedor" class="form-control" placeholder="Escriba código o nombre..." oninput="this.value = this.value.upper(); filtrarDropdownSalida('busqueda_salida_vendedor', 'dropdown_salida_vendedor')" onfocus="filtrarDropdownSalida('busqueda_salida_vendedor', 'dropdown_salida_vendedor')">
+                            <input type="hidden" name="codigo_vendedor" id="select_salida_vendedor">
+                            <div id="dropdown_salida_vendedor" class="dropdown-menu position-absolute w-100 shadow" style="max-height: 200px; overflow-y: auto; z-index: 1060;">
+                                {% for v in vendedores %}
+                                <button type="button" class="dropdown-item small py-2" onclick="seleccionarDatoSalidaCustom('select_salida_vendedor', 'busqueda_salida_vendedor', '{{ v.codigo }}', '{{ v.nombre }}', 'dropdown_salida_vendedor', false)">
+                                    <strong>{{ v.codigo }}</strong> - {{ v.nombre }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark">Documento Factura / Control:</label>
+                            <input type="text" name="referencia_documento" id="input_ref_salida" class="form-control" oninput="this.value = this.value.upper()" placeholder="Ej: F-00123" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark">Número de Lote (PEPS Activo):</label>
+                            <select name="numero_lote" id="select_lote_salida" class="form-select" onchange="actualizarFechaVencimientoAutomatica(); actualizarMaximoDespachar();" required>
+                                <option value="">-- Seleccione Almacén y Producto primero --</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark">Fecha Vencimiento Automática:</label>
+                            <input type="text" name="fecha_vencimiento" id="input_venc_salida" class="form-control bg-light text-center fw-bold" readonly placeholder="dd/mm/aaaa">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark">Cantidad a Despachar (Unidades):</label>
+                            <div class="input-group">
+                                <input type="number" name="cantidad" id="input_cant_salida" class="form-control" placeholder="Ej: 500" min="1" required>
+                                <span class="input-group-text bg-light font-monospace small" id="lbl_stock_max_despacho" style="display: none;">Max: 0</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light p-3">
+                    <button type="submit" class="btn btn-danger w-100 fw-bold py-2" style="background-color: #dc2626; border: none;">
+                        Procesar Despacho
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<script>
+function filtrarDropdownSalida(inputId, dropdownId) {
+    const texto = document.getElementById(inputId).value.toLowerCase();
+    const dropdown = document.getElementById(dropdownId);
+    const items = dropdown.getElementsByClassName('dropdown-item');
+    
+    let coincidencias = 0;
+    for (let item of items) {
+        if (item.innerText.toLowerCase().includes(texto)) {
+            item.style.display = 'block';
+            coincidencias++;
+        } else {
+            item.style.display = 'none';
+        }
+    }
+    
+    if (coincidencias > 0) {
+        dropdown.classList.add('show');
+    } else {
+        dropdown.classList.remove('show');
+    }
+}
+
+function seleccionarDatoSalidaCustom(hiddenId, inputId, codigo, textoVisible, dropdownId, recalcularLotes=false, sku='', art='') {
+    document.getElementById(hiddenId).value = codigo;
+    document.getElementById(inputId).value = textoVisible;
+    document.getElementById(dropdownId).classList.remove('show');
+    
+    if (recalcularLotes) {
+        document.getElementById('visual_salida_sku').innerText = sku;
+        document.getElementById('visual_salida_articulo').innerText = art;
+    }
+    cargarLotesInteligentes();
+}
+
+function evaluarCamposDinamicosSalida() {
+    const motivo = document.getElementById('v10_motivo_salida').value;
+    const inputDestino = document.getElementById('busqueda_salida_destino');
+    const inputCliente = document.getElementById('busqueda_salida_cliente');
+
+    if (motivo === 'FACTURACION') {
+        document.getElementById('contenedor_salida_destino').classList.add('d-none');
+        document.getElementById('contenedor_salida_cliente').classList.remove('d-none');
+        document.getElementById('contenedor_salida_vendedor').classList.remove('d-none');
+        if(inputDestino) inputDestino.required = false;
+        if(inputCliente) inputCliente.required = true;
+    } else if (motivo === 'TRASLADO') {
+        document.getElementById('contenedor_salida_destino').classList.remove('d-none');
+        document.getElementById('contenedor_salida_cliente').classList.add('d-none');
+        document.getElementById('contenedor_salida_vendedor').classList.add('d-none');
+        if(inputDestino) inputDestino.required = true;
+        if(inputCliente) inputCliente.required = false;
+    } else if (motivo === 'CONSIGNACION') {
+        // CORRECCIÓN MANDATORIA: Muestra almacén destino, lo vuelve obligatorio, pero oculta al Cliente
+        document.getElementById('contenedor_salida_destino').classList.remove('d-none');
+        document.getElementById('contenedor_salida_cliente').classList.add('d-none');
+        document.getElementById('contenedor_salida_vendedor').classList.add('d-none');
+        if(inputDestino) inputDestino.required = true;
+        if(inputCliente) inputCliente.required = false;
+    } else {
+        document.getElementById('contenedor_salida_destino').classList.add('d-none');
+        document.getElementById('contenedor_salida_cliente').classList.add('d-none');
+        document.getElementById('contenedor_salida_vendedor').classList.add('d-none');
+        if(inputDestino) inputDestino.required = false;
+        if(inputCliente) inputCliente.required = false;
+    }
+    validarAlmacenesDiferentesSalida();
+    cargarLotesInteligentes();
+}
+
+function validarAlmacenesDiferentesSalida() {
+    const motivo = document.getElementById('v10_motivo_salida').value;
+    if (motivo === 'TRASLADO' || motivo === 'CONSIGNACION') {
+        const origen = document.getElementById('select_salida_origen').value;
+        const destino = document.getElementById('select_salida_destino').value;
+
+        if (origen && destino && origen === destino) {
+            alert("⚠️ Operación Inválida: No se puede despachar y recibir en el mismo almacén.");
+            document.getElementById('select_salida_destino').value = "";
+            document.getElementById('busqueda_salida_destino').value = "";
+        }
+    }
+}
+
+function cargarLotesInteligentes() {
+    const producto = document.getElementById('codigo_producto_salida_input').value;
+    const almacen = document.getElementById('select_salida_origen').value;
+    const selectLote = document.getElementById('select_lote_salida');
+    const inputCant = document.getElementById('input_cant_salida');
+    const lblMax = document.getElementById('lbl_stock_max_despacho');
+    
+    selectLote.innerHTML = '';
+    document.getElementById('input_venc_salida').value = '';
+    if (lblMax) lblMax.style.display = 'none';
+    if (inputCant) inputCant.removeAttribute('max');
+
+    if (!producto || !almacen) {
+        selectLote.innerHTML = '<option value="">-- Seleccione Almacén y Producto primero --</option>';
+        return;
+    }
+
+    selectLote.innerHTML = '<option value="">🔍 Buscando lotes con existencias...</option>';
+
+    fetch(`/api/lotes_disponibles?producto=${producto}&almacen=${almacen}`)
+        .then(res => res.json())
+        .then(lotes => {
+            selectLote.innerHTML = '';
+            if (lotes.length === 0) {
+                selectLote.innerHTML = '<option value="">❌ Sin stock disponible en este almacén</option>';
+                return;
+            }
+
+            let optDef = document.createElement('option');
+            optDef.value = "";
+            optDef.innerText = `-- Seleccionar Lote Activo (${lotes.length}) --`;
+            selectLote.appendChild(optDef);
+
+            lotes.forEach(l => {
+                let opt = document.createElement('option');
+                opt.value = l.lote;
+                opt.setAttribute('data-vencimiento', l.vencimiento);
+                opt.setAttribute('data-stock', l.cantidad);
+                opt.innerText = `${l.lote} (Stock: ${l.cantidad} Unds - Venc: ${l.vencimiento})`;
+                selectLote.appendChild(opt);
+            });
+        })
+        .catch(() => {
+            selectLote.innerHTML = '<option value="">❌ Error al consultar existencias</option>';
+        });
+}
+
+function actualizarFechaVencimientoAutomatica() {
+    const selectLote = document.getElementById('select_lote_salida');
+    const selectedOption = selectLote.options[selectLote.selectedIndex];
+    document.getElementById('input_venc_salida').value = (selectedOption && selectedOption.hasAttribute('data-vencimiento')) ? selectedOption.getAttribute('data-vencimiento') : '';
+}
+
+function actualizarMaximoDespachar() {
+    const selectLote = document.getElementById('select_lote_salida');
+    const inputCant = document.getElementById('input_cant_salida');
+    const lblMax = document.getElementById('lbl_stock_max_despacho');
+
+    if (!selectLote || selectLote.value === "") {
+        if (lblMax) lblMax.style.display = 'none';
+        if (inputCant) inputCant.removeAttribute('max');
+        return;
+    }
+
+    const selectedOption = selectLote.options[selectLote.selectedIndex];
+    const stockDisponible = parseInt(selectedOption.getAttribute('data-stock'), 10);
+
+    if (!isNaN(stockDisponible)) {
+        if (lblMax) {
+            lblMax.innerText = "Max: " + stockDisponible;
+            lblMax.style.display = 'inline-block';
+        }
+        if (inputCant) inputCant.max = stockDisponible;
+    } else {
+        if (lblMax) lblMax.style.display = 'none';
+        if (inputCant) inputCant.removeAttribute('max');
+    }
+}
+
+document.getElementById('qr_salida_scanner').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const rawData = this.value.trim();
+        if (rawData) {
+            const partes = rawData.split('|');
+            if (partes.length >= 4) {
+                document.getElementById('codigo_producto_salida_input').value = partes[0].trim();
+                document.getElementById('v10_busqueda_producto_salida').value = partes[0].trim();
+                document.getElementById('visual_salida_sku').innerText = partes[0].trim();
+                document.getElementById('visual_salida_articulo').innerText = partes[1].trim();
+                this.value = '';
+                cargarLotesInteligentes();
+                document.getElementById('input_cant_salida').focus();
+            }
+        }
+    }
+});
+
+document.addEventListener("DOMContentLoaded", function() {
+    evaluarCamposDinamicosSalida();
+    
+    document.addEventListener('click', function(e) {
+        const selectors = [
+            { input: 'v10_busqueda_producto_salida', menu: 'v10_dropdown_productos_salida' },
+            { input: 'busqueda_salida_origen', menu: 'dropdown_salida_origen' },
+            { input: 'busqueda_salida_destino', menu: 'dropdown_salida_destino' },
+            { input: 'busqueda_salida_cliente', menu: 'dropdown_salida_cliente' },
+            { input: 'busqueda_salida_vendedor', menu: 'dropdown_salida_vendedor' }
+        ];
+        selectors.forEach(s => {
+            const inp = document.getElementById(s.input);
+            const menu = document.getElementById(s.menu);
+            if (inp && menu && e.target !== inp && !menu.contains(e.target)) {
+                menu.classList.remove('show');
+            }
+        });
+    });
+});
+</script>
