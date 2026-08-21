@@ -29,7 +29,7 @@
     <form action="{{ url_for('gestion_producto_vista') }}" method="POST" class="row g-3">
         <div class="col-md-3">
             <label class="form-label small fw-bold">Código SKU:</label>
-            <input type="text" name="codigo" class="form-control form-control-sm fw-bold" oninput="this.value = this.value.upper()" placeholder="Ej: BOL25" required>
+            <input type="text" name="codigo" class="form-control form-control-sm fw-bold" oninput="this.value = this.value.toUpperCase()" placeholder="Ej: BOL25" required>
         </div>
         <div class="col-md-5">
             <label class="form-label small fw-bold">Nombre del Artículo / Descripción:</label>
@@ -49,64 +49,95 @@
     </form>
 </div>
 
-<!-- TABLA DEL MAESTRO DE PRODUCTOS CON SEMÁFORO INDIVIDUAL -->
+<!-- TABLA DEL MAESTRO DE PRODUCTOS CON SEMÁFORO INDIVIDUAL Y ELIMINACIÓN MASIVA -->
 <div class="v10-card">
-    <div class="v10-header-title d-flex justify-content-between align-items-center">
-        <span>Catálogo Maestro de Productos Registrados</span>
-        <span class="badge bg-dark">Total SKUs: {{ productos|length }}</span>
-    </div>
-    
-    <div class="table-responsive">
-        <table class="table table-hover text-center align-middle mb-0" style="font-size: 0.9rem;">
-            <thead class="table-dark">
-                <tr>
-                    <th>Código SKU</th>
-                    <th>Descripción del Artículo</th>
-                    <th>Umbral Crítico (🔴 Rojo)</th>
-                    <th>Umbral Alerta (🟡 Amarillo)</th>
-                    <th>Registrado Por</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in productos %}
-                <tr>
-                    <td class="fw-bold text-dark">{{ p.codigo }}</td>
-                    <td class="text-start fw-medium text-secondary">{{ p.articulo }}</td>
-                    <td><span class="badge bg-danger px-3 py-1 fw-bold">{{ p.dias_criticos }} días</span></td>
-                    <td><span class="badge bg-warning text-dark px-3 py-1 fw-bold">{{ p.dias_alerta }} días</span></td>
-                    <td><small class="text-muted">{{ p.usuario_registro or 'Sistema' }}</small></td>
-                    <td>
-                        <div class="d-flex justify-content-center align-items-center gap-3">
-                            <!-- BOTÓN MODIFICAR REGISTRO -->
-                            <button type="button" class="btn btn-sm text-primary p-0 border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalEditarProducto{{ p.id }}" title="Editar Parámetros">
-                                <i class="bi bi-pencil-square fs-6"></i>
-                            </button>
+    <form action="{{ url_for('eliminar_multiple') }}" method="POST" onsubmit="return confirm('¿Está seguro de eliminar de forma masiva los productos seleccionados?');">
+        <input type="hidden" name="tipo_maestro" value="producto">
+        
+        <div class="v10-header-title d-flex justify-content-between align-items-center">
+            <span>Catálogo Maestro de Productos Registrados</span>
+            <div class="d-flex align-items-center gap-2">
+                {% if current_user.rol == 'ADMIN' %}
+                <button type="submit" class="btn btn-sm btn-danger fw-bold" id="btn-eliminar-lote-productos" disabled>
+                    <i class="bi bi-trash3-fill"></i> Eliminar Seleccionados
+                </button>
+                {% endif %}
+                <span class="badge bg-dark">Total SKUs: {{ productos|length }}</span>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover text-center align-middle mb-0" style="font-size: 0.9rem;">
+                <thead class="table-dark">
+                    <tr>
+                        {% if current_user.rol == 'ADMIN' %}
+                        <style>
+                            /* Estilos CSS para Checkbox de Selección Múltiple Visibles sobre Fondo Oscuro */
+                            .form-check-input-v10 {
+                                width: 1.15em;
+                                height: 1.15em;
+                                border: 2px solid #ffffff !important;
+                                background-color: #374151;
+                                cursor: pointer;
+                            }
+                            .form-check-input-v10:checked {
+                                background-color: #2563eb !important;
+                                border-color: #ffffff !important;
+                            }
+                        </style>
+                        <th style="width: 40px;">
+                            <input type="checkbox" id="check-all-productos" class="form-check-input form-check-input-v10" onclick="toggleTodosProductos(this)">
+                        </th>
+                        {% endif %}
+                        <th>Código SKU</th>
+                        <th>Descripción del Artículo</th>
+                        <th>Umbral Crítico (🔴 Rojo)</th>
+                        <th>Umbral Alerta (🟡 Amarillo)</th>
+                        <th>Registrado Por</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in productos %}
+                    <tr>
+                        {% if current_user.rol == 'ADMIN' %}
+                        <td>
+                            <input type="checkbox" name="registro_ids" value="{{ p.id }}" class="form-check-input border-secondary" onclick="verificarCheckboxesProductos()">
+                        </td>
+                        {% endif %}
+                        <td class="fw-bold text-dark">{{ p.codigo }}</td>
+                        <td class="text-start fw-medium text-secondary">{{ p.articulo }}</td>
+                        <td><span class="badge bg-danger px-3 py-1 fw-bold">{{ p.dias_criticos }} días</span></td>
+                        <td><span class="badge bg-warning text-dark px-3 py-1 fw-bold">{{ p.dias_alerta }} días</span></td>
+                        <td><small class="text-muted">{{ p.usuario_registro or 'Sistema' }}</small></td>
+                        <td>
+                            <div class="d-flex justify-content-center align-items-center gap-3">
+                                <button type="button" class="btn btn-sm text-primary p-0 border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalEditarProducto{{ p.id }}" title="Editar Parámetros">
+                                    <i class="bi bi-pencil-square fs-6"></i>
+                                </button>
 
-                            <!-- BOTÓN ELIMINAR REGISTRO -->
-                            {% if current_user.rol == 'ADMIN' %}
-                            <form action="{{ url_for('eliminar_producto_maestro', id=p.id) }}" method="POST" onsubmit="return confirm('¿Está seguro de desincorporar este SKU del maestro?');" style="margin:0;">
-                                <button type="submit" class="btn btn-sm text-danger p-0 border-0 bg-transparent" title="Eliminar SKU">
+                                {% if current_user.rol == 'ADMIN' %}
+                                <button type="submit" formaction="{{ url_for('eliminar_producto_maestro', id=p.id) }}" class="btn btn-sm text-danger p-0 border-0 bg-transparent" onclick="return confirm('¿Está seguro de desincorporar este SKU del maestro?');" title="Eliminar SKU">
                                     <i class="bi bi-trash3-fill fs-6"></i>
                                 </button>
-                            </form>
-                            {% else %}
-                            <i class="bi bi-lock-fill text-muted"></i>
-                            {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6" class="text-muted py-3">No existen productos registrados en el catálogo maestro.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+                                {% else %}
+                                <i class="bi bi-lock-fill text-muted"></i>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-muted py-3">No existen productos registrados en el catálogo maestro.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
 </div>
 
-<!-- CAPA SEPARADA: CICLO EXCLUSIVO PARA GENERAR LOS MODALES FLOTANTES AL FINAL -->
+<!-- CAPA DE MODALES DE EDICIÓN FLOTANTES -->
 {% for p in productos %}
 <div class="modal fade" id="modalEditarProducto{{ p.id }}" tabindex="-1" aria-labelledby="modalEditarLabel{{ p.id }}" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -144,4 +175,19 @@
 </div>
 {% endfor %}
 
+<script>
+function toggleTodosProductos(master) {
+    const checkboxes = document.getElementsByName('registro_ids');
+    checkboxes.forEach(cb => cb.checked = master.checked);
+    verificarCheckboxesProductos();
+}
+
+function verificarCheckboxesProductos() {
+    const checkboxes = document.getElementsByName('registro_ids');
+    const btn = document.getElementById('btn-eliminar-lote-productos');
+    if (!btn) return;
+    let algunoActivo = Array.from(checkboxes).some(cb => cb.checked);
+    btn.disabled = !algunoActivo;
+}
+</script>
 {% endblock %}

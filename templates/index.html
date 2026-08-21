@@ -84,9 +84,17 @@
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <h5 class="fw-bold mb-1"><i class="bi bi-cpu-fill"></i> Auditoría Logística Inteligente</h5>
-            <p class="small mb-0 text-white-50">Proyección matemática a 30 días basada en rotación de 3 meses para reabastecimiento nacional preventivo.</p>
+            <p class="small mb-0 text-white-50">Proyección matemática parametrizable para reabastecimiento nacional preventivo.</p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div class="d-flex align-items-center gap-1 bg-white bg-opacity-10 p-1 px-2 rounded border border-white border-opacity-25">
+                <small class="text-white fw-semibold">Rotación (Días):</small>
+                <input type="number" id="ia_dias_rotacion" class="form-control form-control-sm text-center fw-bold border-0" value="90" min="1" style="width: 65px; height: 28px;">
+            </div>
+            <div class="d-flex align-items-center gap-1 bg-white bg-opacity-10 p-1 px-2 rounded border border-white border-opacity-25">
+                <small class="text-white fw-semibold">Proyección (Días):</small>
+                <input type="number" id="ia_dias_proyeccion" class="form-control form-control-sm text-center fw-bold border-0" value="30" min="1" style="width: 65px; height: 28px;">
+            </div>
             <button class="btn btn-light fw-bold text-primary shadow-sm" id="btnProcesarIA" onclick="ejecutarAuditoriaIA()">
                 <i class="bi bi-magic"></i> Analizar con IA
             </button>
@@ -157,6 +165,7 @@
 
 {% else %}
 
+    <!-- 🚀 RUTAS CORREGIDAS EN LAS 4 TARJETAS MODULARES -->
     <div class="row g-2 mb-4">
         {% if current_user.rol in ['ADMIN', 'OPERADOR'] %}
         <div class="col-6 col-md-3"><a href="{{ url_for('trazabilidad_lote') }}" class="btn-v10-modular"><i class="bi bi-search"></i> Trazabilidad Lote/SKU</a></div>
@@ -690,13 +699,23 @@ function ejecutarAuditoriaIA() {
     const btn = document.getElementById('btnProcesarIA');
     const btnPDF = document.getElementById('btnExportarPDF');
     
+    const diasRotacion = document.getElementById('ia_dias_rotacion').value || 90;
+    const diasProyeccion = document.getElementById('ia_dias_proyeccion').value || 30;
+
     contenedor.classList.remove('d-none');
     loading.classList.remove('d-none');
     texto.innerHTML = "";
     btn.disabled = true;
     if (btnPDF) btnPDF.disabled = true;
 
-    fetch('/operaciones/ia_analisis_gerencial', { method: 'POST' })
+    const formData = new FormData();
+    formData.append('dias_rotacion', diasRotacion);
+    formData.append('dias_proyeccion', diasProyeccion);
+
+    fetch('/operaciones/ia_analisis_gerencial', { 
+        method: 'POST',
+        body: formData
+    })
         .then(response => response.json())
         .then(data => {
             loading.classList.add('d-none');
@@ -717,6 +736,62 @@ function ejecutarAuditoriaIA() {
 
 function exportarInformePDF() {
     window.print();
+}
+
+/* ========================================================
+   PROCESADOR DE ESCANEO DE CÓDIGO QR AMPLIADO (ENTRADAS)
+   ESTRUCTURA: Código|Artículo|Lote|Vencimiento|Cantidad|NumRecibo|...
+   ======================================================== */
+function procesarCodigoQR(cadenaQR) {
+    if (!cadenaQR || typeof cadenaQR !== 'string') return;
+
+    const datos = cadenaQR.trim().split('|');
+
+    if (datos.length >= 5) {
+        const codigoSKU = datos[0] ? datos[0].trim() : '';
+        const numeroLote = datos[2] ? datos[2].trim() : '';
+        const fechaVenc = datos[3] ? datos[3].trim() : '';
+        const cantidadRecibo = datos[4] ? datos[4].trim() : '';
+        const numRecibo = datos[5] ? datos[5].trim() : '';
+
+        // 1. Asignar Código SKU al input correspondiente
+        const inputSKU = document.querySelector('input[name="codigo_producto"]') || document.getElementById('input_sku_entrada');
+        if (inputSKU) {
+            inputSKU.value = codigoSKU;
+            inputSKU.dispatchEvent(new Event('input', { bubbles: true }));
+            inputSKU.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // 2. Asignar Lote
+        const inputLote = document.querySelector('input[name="numero_lote"]') || document.getElementById('lote_entrada');
+        if (inputLote) inputLote.value = numeroLote;
+
+        // 3. Asignar y adaptar Fecha de Vencimiento (DD/MM/AAAA -> YYYY-MM-DD)
+        const inputFecha = document.querySelector('input[name="fecha_vencimiento"]') || document.getElementById('fecha_venc_entrada');
+        if (inputFecha && fechaVenc) {
+            if (fechaVenc.includes('/')) {
+                const partes = fechaVenc.split('/');
+                if (partes.length === 3) {
+                    const dia = partes[0].padStart(2, '0');
+                    const mes = partes[1].padStart(2, '0');
+                    const anio = partes[2].length === 2 ? '20' + partes[2] : partes[2];
+                    inputFecha.value = `${anio}-${mes}-${dia}`;
+                }
+            } else {
+                inputFecha.value = fechaVenc;
+            }
+        }
+
+        // 4. Asignar Cantidad Recibida
+        const inputCantidad = document.querySelector('input[name="cantidad"]') || document.getElementById('cantidad_entrada');
+        if (inputCantidad) inputCantidad.value = cantidadRecibo;
+
+        // 5. Asignar Número de Recibo como Referencia de Documento
+        const inputReferencia = document.querySelector('input[name="referencia_documento"]') || document.getElementById('referencia_entrada');
+        if (inputReferencia && numRecibo) {
+            inputReferencia.value = numRecibo;
+        }
+    }
 }
 
 document.addEventListener("DOMContentLoaded", function() {

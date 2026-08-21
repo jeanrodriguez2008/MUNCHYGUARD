@@ -1,0 +1,21 @@
+{
+  "short_name": "MunchyGuard",
+  "name": "MunchyGuard V20 - Control de Inventario",
+  "icons": [
+    {
+      "src": "/static/logo2.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/logo2.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#1d3557",
+  "theme_color": "#2563eb",
+  "display": "standalone",
+  "orientation": "portrait-primary"
+}

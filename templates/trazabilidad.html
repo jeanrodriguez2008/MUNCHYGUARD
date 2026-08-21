@@ -180,24 +180,21 @@
     {% endif %}
 </div>
 
-<!-- MOTOR DE BÚSQUEDA INTERACTIVO EN TIEMPO REAL V20 -->
+<!-- MOTOR DE BÚSQUEDA INTERACTIVO EN TIEMPO REAL V20 OPTIMIZADO -->
 <script>
 const catálogoProductos = [
     {% for prod in productos_lista %}
-    { codigo: "{{ prod.codigo }}", articulo: "{{ prod.articulo }}" },
+    { codigo: "{{ prod.codigo }}", articulo: "{{ prod.articulo|escapejs }}" },
     {% endfor %}
 ];
 
-const lotesDisponibles = [];
-{% if movimientos_lista %}
-    {% for m in movimientos_lista %}
-        if(!lotesDisponibles.includes("{{ m.numero_lote }}")){ lotesDisponibles.push("{{ m.numero_lote }}"); }
-    {% endfor %}
-{% else %}
-    {% for m in movimientos %}
-        if(!lotesDisponibles.includes("{{ m.numero_lote }}")){ lotesDisponibles.push("{{ m.numero_lote }}"); }
-    {% endfor %}
-{% endif %}
+const lotesDisponibles = Array.from(new Set([
+    {% if movimientos_lista %}
+        {% for m in movimientos_lista %}"{{ m.numero_lote }}",{% endfor %}
+    {% else %}
+        {% for m in movimientos %}"{{ m.numero_lote }}",{% endfor %}
+    {% endif %}
+]));
 
 document.addEventListener("DOMContentLoaded", () => {
     configurarFiltroInteligente("input_sku_visual", "sugerencias_sku", "sku_hidden", catálogoProductos, true);
@@ -208,73 +205,86 @@ function configurarFiltroInteligente(idInput, idSugerencias, idHidden, data, esP
     const input = document.getElementById(idInput);
     const cajaSug = document.getElementById(idSugerencias);
     const hidden = document.getElementById(idHidden);
+    let timeoutDebounce = null;
 
     function renderizarSugerencias(listaFiltrada) {
         cajaSug.innerHTML = "";
-        if (listaFiltrada.length > 0) {
-            cajaSug.classList.remove("d-none");
-            listaFiltrada.forEach(item => {
-                const btn = document.createElement("button");
-                btn.type = "button";
-                btn.className = "list-group-item list-group-item-action text-start small border-0 py-2";
-                
-                if (esProducto) {
-                    btn.innerHTML = `<strong>${item.codigo}</strong> - ${item.articulo}`;
-                    btn.onclick = () => {
-                        input.value = `${item.codigo} - ${item.articulo}`;
-                        hidden.value = item.codigo;
-                        cajaSug.classList.add("d-none");
-                    };
-                } else {
-                    btn.innerHTML = `<i class="bi bi-box-seam text-secondary me-2"></i> Lote: <strong>${item}</strong>`;
-                    btn.onclick = () => {
-                        input.value = item;
-                        hidden.value = item;
-                        cajaSug.classList.add("d-none");
-                    };
-                }
-                cajaSug.appendChild(btn);
-            });
-        } else {
+        if (listaFiltrada.length === 0) {
             cajaSug.classList.add("d-none");
+            return;
         }
+
+        const fragmento = document.createDocumentFragment();
+
+        listaFiltrada.forEach(item => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "list-group-item list-group-item-action text-start small border-0 py-2";
+            
+            if (esProducto) {
+                btn.innerHTML = `<strong>${item.codigo}</strong> - ${item.articulo}`;
+                btn.addEventListener("mousedown", (e) => {
+                    e.preventDefault();
+                    input.value = `${item.codigo} - ${item.articulo}`;
+                    hidden.value = item.codigo;
+                    cajaSug.classList.add("d-none");
+                });
+            } else {
+                btn.innerHTML = `<i class="bi bi-box-seam text-secondary me-2"></i> Lote: <strong>${item}</strong>`;
+                btn.addEventListener("mousedown", (e) => {
+                    e.preventDefault();
+                    input.value = item;
+                    hidden.value = item;
+                    cajaSug.classList.add("d-none");
+                });
+            }
+            fragmento.appendChild(btn);
+        });
+
+        cajaSug.appendChild(fragmento);
+        cajaSug.classList.remove("d-none");
     }
+
+    input.addEventListener("focus", function() {
+        const busqueda = this.value.trim().toLowerCase();
+        if (!busqueda) {
+            renderizarSugerencias(data.slice(0, esProducto ? 8 : 12));
+        }
+    });
 
     input.addEventListener("click", function() {
         const busqueda = this.value.trim().toLowerCase();
         if (!busqueda) {
-            const iniciales = esProducto ? data.slice(0, 8) : data.slice(0, 15);
-            renderizarSugerencias(iniciales);
+            renderizarSugerencias(data.slice(0, esProducto ? 8 : 12));
         }
     });
 
     input.addEventListener("input", function() {
+        clearTimeout(timeoutDebounce);
         const busqueda = this.value.trim().toLowerCase();
-        
+
         if (!busqueda) {
-            const iniciales = esProducto ? data.slice(0, 8) : data.slice(0, 15);
-            renderizarSugerencias(iniciales);
             hidden.value = "";
+            renderizarSugerencias(data.slice(0, esProducto ? 8 : 12));
             return;
         }
 
-        let filtrados = [];
-        if (esProducto) {
-            filtrados = data.filter(item => 
-                item.codigo.toLowerCase().includes(busqueda) || 
-                item.articulo.toLowerCase().includes(busqueda)
-            ).slice(0, 8);
-        } else {
-            filtrados = data.filter(lote => lote.toLowerCase().includes(busqueda)).slice(0, 15);
-        }
-
-        renderizarSugerencias(filtrados);
+        timeoutDebounce = setTimeout(() => {
+            let filtrados = [];
+            if (esProducto) {
+                filtrados = data.filter(item => 
+                    item.codigo.toLowerCase().includes(busqueda) || 
+                    item.articulo.toLowerCase().includes(busqueda)
+                ).slice(0, 8);
+            } else {
+                filtrados = data.filter(lote => lote.toLowerCase().includes(busqueda)).slice(0, 12);
+            }
+            renderizarSugerencias(filtrados);
+        }, 100);
     });
 
-    document.addEventListener("click", (e) => {
-        if (e.target !== input && !cajaSug.contains(e.target)) {
-            cajaSug.classList.add("d-none");
-        }
+    input.addEventListener("blur", () => {
+        setTimeout(() => cajaSug.classList.add("d-none"), 150);
     });
 }
 

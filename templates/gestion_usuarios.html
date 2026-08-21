@@ -13,30 +13,30 @@
 <div class="row">
     <!-- CREACIÓN MANUAL -->
     <div class="col-md-4 mb-4">
-        <div class="card card-custom shadow-sm">
+        <div class="card card-custom shadow-sm border-0" style="border-radius: 8px; overflow: hidden;">
             <div class="card-header bg-dark text-white font-weight-bold p-3">
                 <i class="bi bi-person-plus-fill me-2 text-warning"></i>Crear Acceso Directo
             </div>
-            <div class="card-body p-4">
-                <form action="/configuracion/gestion/usuarios" method="POST" autocomplete="off">
+            <div class="card-body p-4 bg-white">
+                <form action="{{ url_for('gestion_usuarios') }}" method="POST" autocomplete="off">
                     <div class="mb-3">
-                        <label class="form-label font-weight-600">Usuario / Identificador</label>
+                        <label class="form-label font-weight-600 small">Usuario / Identificador</label>
                         <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                            <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
                             <input type="text" name="username" class="form-control" required placeholder="Ej: jrodriguez">
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label font-weight-600">Contraseña de Seguridad</label>
+                        <label class="form-label font-weight-600 small">Contraseña de Seguridad</label>
                         <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                            <span class="input-group-text bg-light"><i class="bi bi-lock"></i></span>
                             <input type="password" name="password" class="form-control" required placeholder="••••••••">
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label font-weight-600">Rol Inicial</label>
+                        <label class="form-label font-weight-600 small">Rol Inicial</label>
                         <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
+                            <span class="input-group-text bg-light"><i class="bi bi-shield-check"></i></span>
                             <select name="rol" class="form-select" required>
                                 <option value="OPERADOR">OPERADOR (Control General)</option>
                                 <option value="ADMIN">ADMIN (Administrador Completo)</option>
@@ -48,7 +48,7 @@
                         </div>
                     </div>
                     <div class="d-grid gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary fw-bold" style="background-color: #1d3557; border: none;">
                             <i class="bi bi-disk me-2"></i>Guardar Acceso
                         </button>
                     </div>
@@ -59,11 +59,11 @@
 
     <!-- LISTADO Y EDICIÓN DE ROLES -->
     <div class="col-md-8 mb-4">
-        <div class="card card-custom shadow-sm">
+        <div class="card card-custom shadow-sm border-0" style="border-radius: 8px; overflow: hidden;">
             <div class="card-header bg-secondary text-white font-weight-bold p-3">
                 <i class="bi bi-shield-lock me-2"></i>Usuarios Registrados en el Sistema
             </div>
-            <div class="card-body p-0">
+            <div class="card-body p-0 bg-white">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0 text-center">
                         <thead class="table-light">
@@ -103,7 +103,7 @@
                                 </td>
                                 <td>
                                     {% if u.username != 'admin' %}
-                                    <form action="/configuracion/usuarios/eliminar/{{ u.id }}" method="POST" onsubmit="return confirm('Jean, ¿estás 100% seguro de revocar este acceso permanentemente?');" class="m-0">
+                                    <form action="{{ url_for('eliminar_usuario', id=u.id) }}" method="POST" onsubmit="return confirm('Jean, ¿estás 100% seguro de revocar este acceso permanentemente?');" class="m-0">
                                         <button type="submit" class="btn btn-danger btn-sm fw-bold px-3">
                                             <i class="bi bi-person-x-fill me-1"></i> Remover
                                         </button>

@@ -20,7 +20,7 @@
     </div>
 
     <div class="row g-4">
-        <!-- Columna Izquierda: Formulario de Registro / Edición -->
+        <!-- Columna Izquierda: Formulario de Registro / Edición Sincronizado con app.py -->
         <div class="col-md-4">
             <div class="card shadow-sm border-0 p-4" style="background: #ffffff; border-radius: 8px;">
                 <h5 class="fw-bold mb-3 text-secondary" style="font-size: 1.05rem;" id="form-title">
@@ -60,7 +60,7 @@
             </div>
         </div>
 
-        <!-- Columna Derecha: Listado de Almacenes Registrados con Selección Masiva -->
+        <!-- Columna Derecha: Listado de Almacenes Registrados -->
         <div class="col-md-8">
             <form action="{{ url_for('eliminar_multiple') }}" method="POST" onsubmit="return confirm('¿Está seguro de eliminar de forma masiva todos los almacenes seleccionados?');">
                 <input type="hidden" name="tipo_maestro" value="almacen">
@@ -101,13 +101,11 @@
                                     <td class="fw-bold text-primary">{{ almacen.capacidad_maxima }} Unds</td>
                                     <td>
                                         <div class="d-flex justify-content-center gap-2">
-                                            <!-- Botón de Edición Estilo image_0b78b1.png -->
                                             <button type="button" class="btn btn-sm btn-outline-primary px-3 py-1" 
                                                     onclick="prepararEdicionAlmacen('{{ almacen.id }}', '{{ almacen.codigo }}', '{{ almacen.nombre }}', '{{ almacen.capacidad_maxima }}')">
                                                 <i class="bi bi-pencil-square"></i> Editar Capacidad
                                             </button>
                                             
-                                            <!-- INYECCIÓN DEL BOTÓN DE ELIMINACIÓN INDIVIDUAL -->
                                             {% if current_user.rol == 'ADMIN' %}
                                             <button type="submit" formaction="{{ url_for('eliminar_almacen_maestro', id=almacen.id) }}" class="btn btn-sm btn-outline-danger px-3 py-1" onclick="return confirm('¿Está completamente seguro de desincorporar el almacén \'{{ almacen.nombre }}\'?');">
                                                 <i class="bi bi-trash3-fill"></i> Eliminar
@@ -171,7 +169,6 @@ function resetearFormularioAlmacen() {
     document.getElementById('nombre').disabled = false;
 }
 
-// Controladores Javascript para Selección Múltiple V20
 function toggleTodosAlmacenes(master) {
     const checkboxes = document.getElementsByName('registro_ids');
     checkboxes.forEach(cb => cb.checked = master.checked);

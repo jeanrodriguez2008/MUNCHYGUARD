@@ -1,0 +1,27 @@
+# Entornos virtuales
+venv/
+env/
+ENV/
+.venv/
+
+# Archivos compilados y caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Base de datos local (para no sobrescribir datos de producción si aplica)
+# munchy_guard.db
+
+# Archivos de configuración de IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archivos de variables de entorno
+.env
+
+# Archivos temporales de carga
+*.tmp
+*.log

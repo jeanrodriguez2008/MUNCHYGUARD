@@ -6,14 +6,23 @@
                 <h5 class="modal-title fw-bold" id="modalSalidaLabel" style="font-size: 1.1rem;">
                     <i class="bi bi-box-arrow-up"></i> Formulario de Despacho de Producto Terminado (QR Activo)
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="detenerEscanerCamaraSalida()"></button>
             </div>
 
             <form action="{{ url_for('registrar_salida') }}" method="POST" autocomplete="off">
                 <div class="modal-body p-4">
                     
+                    <!-- LECTOR DE CÓDIGO QR / PISTOLA Y CÁMARA MÓVIL -->
                     <div class="p-3 border border-danger rounded bg-light mb-4" style="border-style: dashed !important;">
-                        <label class="form-label small fw-bold text-danger"><i class="bi bi-camera-fill"></i> Escanear Código QR (Despachos):</label>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label small fw-bold text-danger mb-0"><i class="bi bi-camera-fill"></i> Escanear Código QR (Despachos):</label>
+                            <button type="button" class="btn btn-sm btn-danger fw-bold d-flex align-items-center gap-1" id="btn_toggle_cam_salida" onclick="conmutarEscanerCamaraSalida()">
+                                <i class="bi bi-camera-fill"></i> Escanear Cámara
+                            </button>
+                        </div>
+
+                        <div id="cam_reader_salida" class="mb-2 bg-dark rounded d-none" style="width: 100%; max-height: 280px; overflow: hidden;"></div>
+
                         <input type="text" id="qr_salida_scanner" class="form-control form-control-lg bg-white" oninput="this.value = this.value.upper()" placeholder="Haga clic aquí antes de escanear el QR...">
                         <span class="text-muted d-block mt-1" style="font-size: 0.75rem;">Formato esperado: Código|Descripción|Lote|DD/MM/AAAA</span>
                     </div>
@@ -29,17 +38,17 @@
                             </select>
                         </div>
 
+                        <!-- SELECCIÓN MANUAL CON BÚSQUEDA ULTRARRÁPIDA EN MEMORIA -->
                         <div class="col-md-6" style="position: relative;">
                             <label class="form-label small fw-bold text-dark"><i class="bi bi-search"></i> Seleccionar Producto a Despachar:</label>
-                            <input type="text" id="v10_busqueda_producto_salida" class="form-control" placeholder="Ej: SKU o Nombre..." oninput="this.value = this.value.upper(); filtrarDropdownSalida('v10_busqueda_producto_salida', 'v10_dropdown_productos_salida')" onfocus="filtrarDropdownSalida('v10_busqueda_producto_salida', 'v10_dropdown_productos_salida')">
-                            <input type="hidden" name="codigo_producto" id="codigo_producto_salida_input" required>
-                            <div id="v10_dropdown_productos_salida" class="dropdown-menu position-absolute w-100 shadow" style="max-height: 200px; overflow-y: auto; z-index: 1060;">
-                                {% for p in productos %}
-                                <button type="button" class="dropdown-item small py-2" onclick="seleccionarDatoSalidaCustom('codigo_producto_salida_input', 'v10_busqueda_producto_salida', '{{ p.codigo }}', '{{ p.codigo }} - {{ p.articulo }}', 'v10_dropdown_productos_salida', true, '{{ p.codigo }}', '{{ p.articulo }}')">
-                                    <strong>{{ p.codigo }}</strong> - {{ p.articulo }}
+                            <div class="input-group">
+                                <input type="text" id="v10_busqueda_producto_salida" class="form-control" placeholder="Ej: SKU o Nombre..." oninput="this.value = this.value.upper(); buscarProductosSalidaEnMemoria();" onfocus="this.select(); buscarProductosSalidaEnMemoria();" onclick="buscarProductosSalidaEnMemoria();">
+                                <button class="btn btn-outline-secondary text-muted fw-bold" type="button" onclick="limpiarSeleccionProductoSalida()" title="Limpiar y buscar otro SKU">
+                                    <i class="bi bi-x-circle-fill text-danger"></i>
                                 </button>
-                                {% endfor %}
                             </div>
+                            <input type="hidden" name="codigo_producto" id="codigo_producto_salida_input" required>
+                            <div id="v10_dropdown_productos_salida" class="dropdown-menu position-absolute w-100 shadow" style="max-height: 200px; overflow-y: auto; z-index: 1060;"></div>
                         </div>
 
                         <div class="col-12">
@@ -52,11 +61,11 @@
 
                         <div class="col-md-6" id="contenedor_salida_origen" style="position: relative;">
                             <label class="form-label small fw-bold text-dark">Almacén de Origen (Emisor):</label>
-                            <input type="text" id="busqueda_salida_origen" class="form-control text-uppercase" placeholder="Escriba código o nombre..." oninput="this.value = this.value.upper(); filtrarDropdownSalida('busqueda_salida_origen', 'dropdown_salida_origen')" onfocus="filtrarDropdownSalida('busqueda_salida_origen', 'dropdown_salida_origen')">
+                            <input type="text" id="busqueda_salida_origen" class="form-control text-uppercase" placeholder="Escriba código o nombre..." oninput="this.value = this.value.upper(); filtrarDropdownOrigenSalida();" onfocus="this.select(); filtrarDropdownOrigenSalida();">
                             <input type="hidden" name="almacen_origen" id="select_salida_origen">
                             <div id="dropdown_salida_origen" class="dropdown-menu position-absolute w-100 shadow" style="max-height: 200px; overflow-y: auto; z-index: 1060;">
                                 {% for a in almacenes %}
-                                <button type="button" class="dropdown-item small py-2" onclick="seleccionarDatoSalidaCustom('select_salida_origen', 'busqueda_salida_origen', '{{ a.codigo }}', '{{ a.nombre }}', 'dropdown_salida_origen', false); validarAlmacenesDiferentesSalida();">
+                                <button type="button" class="dropdown-item small py-2 item-origen-salida" onmousedown="seleccionarDatoSalidaCustom('select_salida_origen', 'busqueda_salida_origen', '{{ a.codigo }}', '{{ a.nombre }}', 'dropdown_salida_origen', false); validarAlmacenesDiferentesSalida();">
                                     <strong>{{ a.codigo }}</strong> - {{ a.nombre }}
                                 </button>
                                 {% endfor %}
@@ -65,11 +74,11 @@
 
                         <div class="col-md-6 d-none" id="contenedor_salida_destino" style="position: relative;">
                             <label class="form-label small fw-bold text-dark">Almacén Destino (Receptor):</label>
-                            <input type="text" id="busqueda_salida_destino" class="form-control text-uppercase" placeholder="Escriba código o nombre..." oninput="this.value = this.value.upper(); filtrarDropdownSalida('busqueda_salida_destino', 'dropdown_salida_destino')" onfocus="filtrarDropdownSalida('busqueda_salida_destino', 'dropdown_salida_destino')">
+                            <input type="text" id="busqueda_salida_destino" class="form-control text-uppercase" placeholder="Escriba código o nombre..." oninput="this.value = this.value.upper(); filtrarDropdownDestinoSalida();" onfocus="this.select(); filtrarDropdownDestinoSalida();">
                             <input type="hidden" name="almacen_destino" id="select_salida_destino">
                             <div id="dropdown_salida_destino" class="dropdown-menu position-absolute w-100 shadow" style="max-height: 200px; overflow-y: auto; z-index: 1060;">
                                 {% for a in almacenes %}
-                                <button type="button" class="dropdown-item small py-2" onclick="seleccionarDatoSalidaCustom('select_salida_destino', 'busqueda_salida_destino', '{{ a.codigo }}', '{{ a.nombre }}', 'dropdown_salida_destino', false); validarAlmacenesDiferentesSalida();">
+                                <button type="button" class="dropdown-item small py-2 item-destino-salida" onmousedown="seleccionarDatoSalidaCustom('select_salida_destino', 'busqueda_salida_destino', '{{ a.codigo }}', '{{ a.nombre }}', 'dropdown_salida_destino', false); validarAlmacenesDiferentesSalida();">
                                     <strong>{{ a.codigo }}</strong> - {{ a.nombre }}
                                 </button>
                                 {% endfor %}
@@ -78,11 +87,11 @@
 
                         <div class="col-md-6" id="contenedor_salida_cliente" style="position: relative;">
                             <label class="form-label small fw-bold text-dark">Cliente (Filtro Inteligente):</label>
-                            <input type="text" id="busqueda_salida_cliente" class="form-control" placeholder="Escriba código o Razón Social..." oninput="this.value = this.value.upper(); filtrarDropdownSalida('busqueda_salida_cliente', 'dropdown_salida_cliente')" onfocus="filtrarDropdownSalida('busqueda_salida_cliente', 'dropdown_salida_cliente')">
+                            <input type="text" id="busqueda_salida_cliente" class="form-control" placeholder="Escriba código o Razón Social..." oninput="this.value = this.value.upper(); filtrarDropdownClienteSalida();" onfocus="this.select(); filtrarDropdownClienteSalida();">
                             <input type="hidden" name="codigo_cliente" id="select_salida_cliente">
                             <div id="dropdown_salida_cliente" class="dropdown-menu position-absolute w-100 shadow" style="max-height: 200px; overflow-y: auto; z-index: 1060;">
                                 {% for c in clientes %}
-                                <button type="button" class="dropdown-item small py-2" onclick="seleccionarDatoSalidaCustom('select_salida_cliente', 'busqueda_salida_cliente', '{{ c.codigo }}', '{{ c.razon_social }}', 'dropdown_salida_cliente', false)">
+                                <button type="button" class="dropdown-item small py-2 item-cliente-salida" onmousedown="seleccionarDatoSalidaCustom('select_salida_cliente', 'busqueda_salida_cliente', '{{ c.codigo }}', '{{ c.razon_social }}', 'dropdown_salida_cliente', false)">
                                     <strong>{{ c.codigo }}</strong> - {{ c.razon_social }}
                                 </button>
                                 {% endfor %}
@@ -91,11 +100,11 @@
 
                         <div class="col-md-6" id="contenedor_salida_vendedor" style="position: relative;">
                             <label class="form-label small fw-bold text-dark">Vendedor Asignado:</label>
-                            <input type="text" id="busqueda_salida_vendedor" class="form-control" placeholder="Escriba código o nombre..." oninput="this.value = this.value.upper(); filtrarDropdownSalida('busqueda_salida_vendedor', 'dropdown_salida_vendedor')" onfocus="filtrarDropdownSalida('busqueda_salida_vendedor', 'dropdown_salida_vendedor')">
+                            <input type="text" id="busqueda_salida_vendedor" class="form-control" placeholder="Escriba código o nombre..." oninput="this.value = this.value.upper(); filtrarDropdownVendedorSalida();" onfocus="this.select(); filtrarDropdownVendedorSalida();">
                             <input type="hidden" name="codigo_vendedor" id="select_salida_vendedor">
                             <div id="dropdown_salida_vendedor" class="dropdown-menu position-absolute w-100 shadow" style="max-height: 200px; overflow-y: auto; z-index: 1060;">
                                 {% for v in vendedores %}
-                                <button type="button" class="dropdown-item small py-2" onclick="seleccionarDatoSalidaCustom('select_salida_vendedor', 'busqueda_salida_vendedor', '{{ v.codigo }}', '{{ v.nombre }}', 'dropdown_salida_vendedor', false)">
+                                <button type="button" class="dropdown-item small py-2 item-vendedor-salida" onmousedown="seleccionarDatoSalidaCustom('select_salida_vendedor', 'busqueda_salida_vendedor', '{{ v.codigo }}', '{{ v.nombre }}', 'dropdown_salida_vendedor', false)">
                                     <strong>{{ v.codigo }}</strong> - {{ v.nombre }}
                                 </button>
                                 {% endfor %}
@@ -142,26 +151,183 @@
 </div>
 
 <script>
-function filtrarDropdownSalida(inputId, dropdownId) {
-    const texto = document.getElementById(inputId).value.toLowerCase();
-    const dropdown = document.getElementById(dropdownId);
+// Carga del catálogo completo a memoria JS (instantáneo)
+const productosSalidaMemoria = [
+    {% for p in productos %}
+    { codigo: "{{ p.codigo }}", articulo: "{{ p.articulo | replace('\"', '') }}" },
+    {% endfor %}
+];
+
+let html5QrCodeSalida = null;
+
+function buscarProductosSalidaEnMemoria() {
+    const query = document.getElementById('v10_busqueda_producto_salida').value.trim().toLowerCase();
+    const dropdown = document.getElementById('v10_dropdown_productos_salida');
+    dropdown.innerHTML = '';
+
+    // Filtra por coincidencia o toma los primeros 20 si está vacío
+    const filtrados = query 
+        ? productosSalidaMemoria.filter(p => p.codigo.toLowerCase().includes(query) || p.articulo.toLowerCase().includes(query)).slice(0, 20)
+        : productosSalidaMemoria.slice(0, 20);
+
+    if (filtrados.length === 0) {
+        dropdown.innerHTML = '<div class="dropdown-item small text-muted text-center py-2">Sin coincidencias</div>';
+    } else {
+        filtrados.forEach(p => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'dropdown-item small py-2';
+            btn.innerHTML = `<strong>${p.codigo}</strong> - ${p.articulo}`;
+            btn.onmousedown = function() {
+                seleccionarDatoSalidaCustom('codigo_producto_salida_input', 'v10_busqueda_producto_salida', p.codigo, `${p.codigo} - ${p.articulo}`, 'v10_dropdown_productos_salida', true, p.codigo, p.articulo);
+            };
+            dropdown.appendChild(btn);
+        });
+    }
+    dropdown.classList.add('show');
+}
+
+function filtrarDropdownOrigenSalida() {
+    const query = document.getElementById('busqueda_salida_origen').value.trim().toLowerCase();
+    const dropdown = document.getElementById('dropdown_salida_origen');
     const items = dropdown.getElementsByClassName('dropdown-item');
-    
-    let coincidencias = 0;
+    let count = 0;
     for (let item of items) {
-        if (item.innerText.toLowerCase().includes(texto)) {
-            item.style.display = 'block';
-            coincidencias++;
+        const text = item.innerText.toLowerCase();
+        if (!query || text.includes(query)) {
+            item.style.display = count < 20 ? 'block' : 'none';
+            count++;
         } else {
             item.style.display = 'none';
         }
     }
-    
-    if (coincidencias > 0) {
-        dropdown.classList.add('show');
-    } else {
-        dropdown.classList.remove('show');
+    dropdown.classList.toggle('show', count > 0);
+}
+
+function filtrarDropdownDestinoSalida() {
+    const query = document.getElementById('busqueda_salida_destino').value.trim().toLowerCase();
+    const dropdown = document.getElementById('dropdown_salida_destino');
+    const items = dropdown.getElementsByClassName('dropdown-item');
+    let count = 0;
+    for (let item of items) {
+        const text = item.innerText.toLowerCase();
+        if (!query || text.includes(query)) {
+            item.style.display = count < 20 ? 'block' : 'none';
+            count++;
+        } else {
+            item.style.display = 'none';
+        }
     }
+    dropdown.classList.toggle('show', count > 0);
+}
+
+function filtrarDropdownClienteSalida() {
+    const query = document.getElementById('busqueda_salida_cliente').value.trim().toLowerCase();
+    const dropdown = document.getElementById('dropdown_salida_cliente');
+    const items = dropdown.getElementsByClassName('dropdown-item');
+    let count = 0;
+    for (let item of items) {
+        const text = item.innerText.toLowerCase();
+        if (!query || text.includes(query)) {
+            item.style.display = count < 20 ? 'block' : 'none';
+            count++;
+        } else {
+            item.style.display = 'none';
+        }
+    }
+    dropdown.classList.toggle('show', count > 0);
+}
+
+function filtrarDropdownVendedorSalida() {
+    const query = document.getElementById('busqueda_salida_vendedor').value.trim().toLowerCase();
+    const dropdown = document.getElementById('dropdown_salida_vendedor');
+    const items = dropdown.getElementsByClassName('dropdown-item');
+    let count = 0;
+    for (let item of items) {
+        const text = item.innerText.toLowerCase();
+        if (!query || text.includes(query)) {
+            item.style.display = count < 20 ? 'block' : 'none';
+            count++;
+        } else {
+            item.style.display = 'none';
+        }
+    }
+    dropdown.classList.toggle('show', count > 0);
+}
+
+function conmutarEscanerCamaraSalida() {
+    const readerDiv = document.getElementById('cam_reader_salida');
+    const btnCam = document.getElementById('btn_toggle_cam_salida');
+
+    if (readerDiv.classList.contains('d-none')) {
+        readerDiv.classList.remove('d-none');
+        btnCam.innerHTML = '<i class="bi bi-camera-video-off-fill"></i> Cerrar Cámara';
+        btnCam.classList.remove('btn-danger');
+        btnCam.classList.add('btn-secondary');
+
+        html5QrCodeSalida = new Html5Qrcode("cam_reader_salida");
+        html5QrCodeSalida.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 220, height: 220 } },
+            (qrCodeMessage) => {
+                procesarCadenaQRSalida(qrCodeMessage);
+                detenerEscanerCamaraSalida();
+            },
+            (errorMessage) => { }
+        ).catch(err => {
+            alert("⚠️ No se pudo acceder a la cámara del dispositivo.");
+            detenerEscanerCamaraSalida();
+        });
+    } else {
+        detenerEscanerCamaraSalida();
+    }
+}
+
+function detenerEscanerCamaraSalida() {
+    const readerDiv = document.getElementById('cam_reader_salida');
+    const btnCam = document.getElementById('btn_toggle_cam_salida');
+
+    if (html5QrCodeSalida) {
+        html5QrCodeSalida.stop().then(() => {
+            html5QrCodeSalida.clear();
+            html5QrCodeSalida = null;
+        }).catch(() => {});
+    }
+    if (readerDiv) readerDiv.classList.add('d-none');
+    if (btnCam) {
+        btnCam.innerHTML = '<i class="bi bi-camera-fill"></i> Escanear Cámara';
+        btnCam.classList.remove('btn-secondary');
+        btnCam.classList.add('btn-danger');
+    }
+}
+
+function procesarCadenaQRSalida(rawData) {
+    if (!rawData) return;
+    const partes = rawData.trim().split('|');
+    if (partes.length >= 4) {
+        const sku_qr = partes[0].trim();
+        const desc_qr = partes[1].trim();
+
+        document.getElementById('codigo_producto_salida_input').value = sku_qr;
+        document.getElementById('v10_busqueda_producto_salida').value = `${sku_qr} - ${desc_qr}`;
+        document.getElementById('visual_salida_sku').innerText = sku_qr;
+        document.getElementById('visual_salida_articulo').innerText = desc_qr;
+        cargarLotesInteligentes();
+        document.getElementById('input_cant_salida').focus();
+    } else {
+        alert("⚠️ El código QR escaneado no cumple con el formato esperado (Código|Descripción|Lote|DD/MM/AAAA)");
+    }
+}
+
+function limpiarSeleccionProductoSalida() {
+    document.getElementById('codigo_producto_salida_input').value = '';
+    const inputBusqueda = document.getElementById('v10_busqueda_producto_salida');
+    inputBusqueda.value = '';
+    document.getElementById('visual_salida_sku').innerText = '--';
+    document.getElementById('visual_salida_articulo').innerText = 'Ningún producto seleccionado';
+    cargarLotesInteligentes();
+    buscarProductosSalidaEnMemoria();
+    inputBusqueda.focus();
 }
 
 function seleccionarDatoSalidaCustom(hiddenId, inputId, codigo, textoVisible, dropdownId, recalcularLotes=false, sku='', art='') {
@@ -194,7 +360,6 @@ function evaluarCamposDinamicosSalida() {
         if(inputDestino) inputDestino.required = true;
         if(inputCliente) inputCliente.required = false;
     } else if (motivo === 'CONSIGNACION') {
-        // CORRECCIÓN MANDATORIA: Muestra almacén destino, lo vuelve obligatorio, pero oculta al Cliente
         document.getElementById('contenedor_salida_destino').classList.remove('d-none');
         document.getElementById('contenedor_salida_cliente').classList.add('d-none');
         document.getElementById('contenedor_salida_vendedor').classList.add('d-none');
@@ -307,19 +472,8 @@ function actualizarMaximoDespachar() {
 document.getElementById('qr_salida_scanner').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         e.preventDefault();
-        const rawData = this.value.trim();
-        if (rawData) {
-            const partes = rawData.split('|');
-            if (partes.length >= 4) {
-                document.getElementById('codigo_producto_salida_input').value = partes[0].trim();
-                document.getElementById('v10_busqueda_producto_salida').value = partes[0].trim();
-                document.getElementById('visual_salida_sku').innerText = partes[0].trim();
-                document.getElementById('visual_salida_articulo').innerText = partes[1].trim();
-                this.value = '';
-                cargarLotesInteligentes();
-                document.getElementById('input_cant_salida').focus();
-            }
-        }
+        procesarCadenaQRSalida(this.value);
+        this.value = '';
     }
 });
 
@@ -343,4 +497,11 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 });
+
+const modalSalidaElem = document.getElementById('modalSalida');
+if (modalSalidaElem) {
+    modalSalidaElem.addEventListener('hidden.bs.modal', function () {
+        detenerEscanerCamaraSalida();
+    });
+}
 </script>

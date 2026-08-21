@@ -15,11 +15,10 @@ app.secret_key = os.environ.get("SECRET_KEY", "munchy_secret_key_production")
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
 
-# 🚀 CONEXIÓN DINÁMICA: Detecta Neon PostgreSQL en Render o SQLite local
+# Conexión Dinámica: Detecta Neon PostgreSQL en Render o SQLite local
 db_url = os.environ.get("DATABASE_URL")
 
 if db_url:
-    # Corrección automática para compatibilidad con SQLAlchemy 2.0+
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = db_url
@@ -27,6 +26,12 @@ else:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(base_dir, 'munchy_guard.db')
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+    "pool_timeout": 30
+}
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
@@ -39,7 +44,7 @@ class Usuario(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(100), nullable=False)
-    rol = db.Column(db.String(20), default='OPERADOR') # ADMIN, OPERADOR, RECEPTOR, DESPACHADOR, CONSULTOR, GERENTE
+    rol = db.Column(db.String(20), default='OPERADOR')
     nombre_completo = db.Column(db.String(120), nullable=True)
     cedula_rif = db.Column(db.String(30), nullable=True)
     correo = db.Column(db.String(100), nullable=True)
@@ -86,7 +91,7 @@ class Vendedor(db.Model):
 class MovimientoInventario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     id_registro_unico = db.Column(db.String(60), unique=True, nullable=False)
-    tipo_operacion = db.Column(db.String(20), nullable=False) # ENTRADA, SALIDA
+    tipo_operacion = db.Column(db.String(20), nullable=False)
     tipo_motivo = db.Column(db.String(40), nullable=False)    
     codigo_producto = db.Column(db.String(30), nullable=False)
     almacen_origen = db.Column(db.String(30), nullable=True)
@@ -94,7 +99,7 @@ class MovimientoInventario(db.Model):
     codigo_cliente = db.Column(db.String(30), nullable=True)
     codigo_vendedor = db.Column(db.String(30), nullable=True)
     numero_lote = db.Column(db.String(50), nullable=False)
-    fecha_vencimiento = db.Column(db.String(10), nullable=False) # Formato DD/MM/YYYY
+    fecha_vencimiento = db.Column(db.String(10), nullable=False)
     cantidad = db.Column(db.Integer, nullable=False)          
     referencia_documento = db.Column(db.String(50), nullable=False)
     nota_despacho = db.Column(db.String(50), nullable=True)   
@@ -114,7 +119,7 @@ class LogsAuditoria(db.Model):
 def load_user(user_id):
     return db.session.get(Usuario, int(user_id))
 
-# 🚀 INICIALIZACIÓN AUTOMÁTICA DE BASE DE DATOS PARA GUNICORN / RENDER
+# Inicialización automática
 with app.app_context():
     db.create_all()
     admin_user = Usuario.query.filter_by(username='admin').first()
@@ -131,7 +136,6 @@ with app.app_context():
         )
         db.session.add(usuario_master)
         db.session.commit()
-        print("✓ Base de datos y Usuario Maestro 'admin' verificados/creados con éxito.")
 
 # ========================================================
 # DECORADORES PARA CONTROL DE ACCESO SEGURO
@@ -224,6 +228,106 @@ def obtener_saldos_por_lote():
         
     return inventario_disponible
 
+# ========================================================
+# ENDPOINT DE CONCILIACIÓN AUTOMÁTICA DESDE MUNCHYPROQR
+# ========================================================
+@app.route('/api/v1/conciliacion/munchyproqr', methods=['POST'])
+def api_conciliacion_munchyproqr():
+    try:
+        data = request.get_json() or {}
+        
+        codigo_producto = str(data.get('codigo_producto') or '').strip().upper()
+        numero_lote = str(data.get('numero_lote') or '').strip().upper()
+        fecha_venc_raw = str(data.get('fecha_vencimiento') or '').strip()
+        cantidad = int(data.get('cantidad', 0))
+        almacen_destino = str(data.get('almacen_destino') or 'ALM01').strip().upper()
+        referencia_documento = str(data.get('referencia_documento') or 'PRO-QR').strip().upper()
+        usuario_pro = str(data.get('usuario') or 'AlmacenistaProQR').strip()
+
+        if not codigo_producto or not numero_lote or cantidad <= 0:
+            return jsonify({'success': False, 'error': 'Datos incompletos o cantidad inválida.'}), 400
+
+        # Formatear la fecha de YYYY-MM-DD a DD/MM/YYYY si viene en ISO
+        if "-" in fecha_venc_raw:
+            try:
+                fecha_vencimiento = datetime.strptime(fecha_venc_raw, "%Y-%m-%d").strftime("%d/%m/%Y")
+            except ValueError:
+                fecha_vencimiento = fecha_venc_raw
+        else:
+            fecha_vencimiento = fecha_venc_raw
+
+        # Validar si el ticket ya se había registrado previamente en MunchyGuardPT
+        mov_existente = MovimientoInventario.query.filter_by(referencia_documento=referencia_documento).first()
+        if mov_existente:
+            return jsonify({
+                'success': True,
+                'message': f'El ticket N° {referencia_documento} ya se encontraba conciliado en MunchyGuardPT.',
+                'id_transaccion': mov_existente.id_registro_unico
+            }), 200
+
+        # Asegurar la existencia del SKU en el maestro de Productos
+        prod_obj = Producto.query.filter_by(codigo=codigo_producto).first()
+        if not prod_obj:
+            nuevo_prod = Producto(
+                codigo=codigo_producto,
+                articulo=f"PRODUCTO {codigo_producto}",
+                dias_criticos=30,
+                dias_alerta=90,
+                usuario_registro=f"PROQR:{usuario_pro}"
+            )
+            db.session.add(nuevo_prod)
+            db.session.commit()
+
+        # Validar capacidad disponible en el almacén de destino
+        obj_almacen = Almacen.query.filter_by(codigo=almacen_destino).first()
+        if obj_almacen:
+            saldos_actuales = obtener_saldos_por_lote()
+            ocupacion_actual = sum(s['cantidad'] for s in saldos_actuales if s['almacen'] == almacen_destino)
+            if (ocupacion_actual + cantidad) > obj_almacen.capacidad_maxima:
+                return jsonify({
+                    'success': False, 
+                    'error': f"Capacidad excedida en el Almacén {almacen_destino} (Límite: {obj_almacen.capacidad_maxima} unds)."
+                }), 400
+
+        # Crear el movimiento de entrada en el Kardex de MunchyGuardPT
+        id_unico = f"ING-PROQR-{codigo_producto}-{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+        nuevo_ingreso = MovimientoInventario(
+            id_registro_unico=id_unico,
+            tipo_operacion='ENTRADA',
+            tipo_motivo='PRODUCCION INTERNA',
+            codigo_producto=codigo_producto,
+            almacen_origen='PRODUCCION',
+            almacen_destino=almacen_destino,
+            numero_lote=numero_lote,
+            fecha_vencimiento=fecha_vencimiento,
+            cantidad=cantidad,
+            referencia_documento=referencia_documento,
+            usuario_registro=f"PROQR:{usuario_pro}"
+        )
+        
+        db.session.add(nuevo_ingreso)
+
+        # Registrar en la auditoría del sistema
+        log_auditoria = LogsAuditoria(
+            usuario=f"PROQR:{usuario_pro}",
+            rol="SISTEMA",
+            modulo="CONCILIACION API",
+            accion_detallada=f"Entrada automática vía API MunchyProQR. Ticket: {referencia_documento}, SKU: {codigo_producto}, Cantidad: {cantidad} unds."
+        )
+        db.session.add(log_auditoria)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True, 
+            'message': f'✓ Conciliación exitosa. SKU {codigo_producto} ingresado a {almacen_destino}.',
+            'id_transaccion': id_unico
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/lotes_disponibles', methods=['GET'])
 @login_required
 def api_lotes_disponibles():
@@ -278,7 +382,7 @@ def registro():
         nuevo_usuario = Usuario(
             username=username,
             password=password,
-            rol='OPERADOR', # Asignación por defecto
+            rol='OPERADOR',
             nombre_completo=nombre_completo,
             cedula_rif=cedula_rif,
             correo=correo,
@@ -515,9 +619,6 @@ def plantilla_excel_salida():
         flash(f"❌ Error al generar plantilla: {str(e)}", "danger")
         return redirect(url_for('index'))
 
-# ========================================================
-# GENERADORES DE PLANTILLAS EXCEL PARA MAESTROS
-# ========================================================
 @app.route('/operaciones/plantilla-excel-almacen', methods=['GET'])
 @login_required
 def plantilla_excel_almacen():
@@ -585,9 +686,8 @@ def plantilla_excel_vendedor():
         flash(f"❌ Error al generar plantilla: {str(e)}", "danger")
         return redirect(url_for('index'))
 
-
 # ========================================================
-# PLANIFICACIÓN DE DEMANDA Y REPOSICIÓN PROYECTIVA (LOCAL)
+# PLANIFICACIÓN DE DEMANDA Y REPOSICIÓN PROYECTIVA
 # ========================================================
 @app.route('/operaciones/ia_analisis_gerencial', methods=['POST'])
 @login_required
@@ -595,6 +695,9 @@ def plantilla_excel_vendedor():
 def ia_analisis_gerencial():
     try:
         from datetime import datetime, timedelta
+
+        dias_proyeccion = int(request.form.get('dias_proyeccion', 30) or 30)
+        dias_rotacion = int(request.form.get('dias_rotacion', 90) or 90)
 
         def fmt_cant(val):
             try:
@@ -617,7 +720,7 @@ def ia_analisis_gerencial():
         movimientos_salida = MovimientoInventario.query.filter_by(tipo_operacion='SALIDA').all()
         total_general_despachado = 0
         
-        conteo_90_dias = {}        
+        conteo_rotacion = {}        
         conteo_15_dias = {}        
         conteo_cliente_cedis = {}  
         ventas_vendedor = {}       
@@ -627,20 +730,25 @@ def ia_analisis_gerencial():
             origen = m.almacen_origen
             if not origen:
                 continue
-            sku = m.codigo_producto
-            total_general_despachado += m.cantidad
-
-            if origen not in conteo_90_dias:
-                conteo_90_dias[origen] = {}
-            conteo_90_dias[origen][sku] = conteo_90_dias[origen].get(sku, 0) + m.cantidad
-
+            
             dias_transcurridos = (fecha_actual - m.fecha_sistema).days
+            
+            if dias_transcurridos <= dias_rotacion:
+                sku = m.codigo_producto
+                total_general_despachado += m.cantidad
+
+                if origen not in conteo_rotacion:
+                    conteo_rotacion[origen] = {}
+                conteo_rotacion[origen][sku] = conteo_rotacion[origen].get(sku, 0) + m.cantidad
+
             if dias_transcurridos <= 15:
+                sku = m.codigo_producto
                 if origen not in conteo_15_dias:
                     conteo_15_dias[origen] = {}
                 conteo_15_dias[origen][sku] = conteo_15_dias[origen].get(sku, 0) + m.cantidad
 
             if m.codigo_cliente:
+                sku = m.codigo_producto
                 if origen not in conteo_cliente_cedis:
                     conteo_cliente_cedis[origen] = {}
                 if sku not in conteo_cliente_cedis[origen]:
@@ -648,6 +756,7 @@ def ia_analisis_gerencial():
                 conteo_cliente_cedis[origen][sku][m.codigo_cliente] = conteo_cliente_cedis[origen][sku].get(m.codigo_cliente, 0) + m.cantidad
 
             if m.codigo_vendedor and m.tipo_motivo == 'FACTURACION':
+                sku = m.codigo_producto
                 ventas_vendedor[m.codigo_vendedor] = ventas_vendedor.get(m.codigo_vendedor, 0) + m.cantidad
                 if origen not in vendedor_cedis_sku:
                     vendedor_cedis_sku[origen] = {}
@@ -655,7 +764,7 @@ def ia_analisis_gerencial():
 
         lista_abc = []
         for p in productos:
-            total_sku = sum(conteo_90_dias.get(a.codigo, {}).get(p.codigo, 0) for a in almacenes)
+            total_sku = sum(conteo_rotacion.get(a.codigo, {}).get(p.codigo, 0) for a in almacenes)
             pct = (total_sku / total_general_despachado * 100) if total_general_despachado > 0 else 0
             lista_abc.append({'codigo': p.codigo, 'porcentaje': pct, 'categoria': 'C'})
         
@@ -679,10 +788,10 @@ def ia_analisis_gerencial():
             MovimientoInventario.codigo_producto, MovimientoInventario.detalle_devolucion
         ).order_by(db.desc(db.func.sum(MovimientoInventario.cantidad))).limit(5).all()
 
-        informe_html = """
+        informe_html = f"""
         <div class="p-2 mb-3 bg-dark text-white rounded text-center">
             <h4 class="m-0 fw-bold"><i class="bi bi-cpu-fill"></i> INFORME DE PLANIFICACIÓN DE DEMANDA CON REPOSICIÓN PROYECTIVA</h4>
-            <small class="text-white-50">Análisis Matemático Multi-Almacen, Slotting ABC y Reducción de Mermas</small>
+            <small class="text-white-50">Análisis Matemático Multi-Almacen a {dias_proyeccion} Días (Rotación de {dias_rotacion} Días)</small>
         </div>
         """
 
@@ -718,7 +827,7 @@ def ia_analisis_gerencial():
                         <tr>
                             <th>SKU</th>
                             <th>Descripción</th>
-                            <th>CMD (90d)</th>
+                            <th>CMD ({dias_rotacion}d)</th>
                             <th>Stock Seg. (SS)</th>
                             <th>Punto Pedido (PP)</th>
                             <th>Inventario Actual</th>
@@ -731,8 +840,8 @@ def ia_analisis_gerencial():
             lista_carga_cedis = []
 
             for prod in productos:
-                total_salidas_sku = conteo_90_dias.get(alm.codigo, {}).get(prod.codigo, 0)
-                cmd = round(total_salidas_sku / 90, 2)
+                total_salidas_sku = conteo_rotacion.get(alm.codigo, {}).get(prod.codigo, 0)
+                cmd = round(total_salidas_sku / dias_rotacion, 2)
                 inventario_actual = saldos_cedis_sku.get(prod.codigo, 0)
 
                 if total_salidas_sku > 0 or inventario_actual > 0:
@@ -747,14 +856,14 @@ def ia_analisis_gerencial():
                         ss = int(ss * 1.3)
 
                     pp = int((cmd * 5) + ss)
-                    cr = int((cmd * 30) + ss - inventario_actual)
+                    cr = int((cmd * dias_proyeccion) + ss - inventario_actual)
                     if cr < 0: cr = 0
 
                     tabla_proyectiva += f"""
                     <tr {'class="table-danger"' if inventario_actual <= pp and inventario_actual > 0 else 'class="table-warning"' if inventario_actual == 0 and cmd > 0 else ''}>
                         <td class="fw-bold">{prod.codigo}</td>
                         <td class="text-start text-truncate" style="max-width:140px;">{prod.articulo}</td>
-                        <td>{fmt_cant(int(cmd * 30) / 30)} u/d</td>
+                        <td>{fmt_cant(int(cmd * dias_proyeccion) / dias_rotacion)} u/d</td>
                         <td>{fmt_cant(ss)} u</td>
                         <td class="fw-bold">{fmt_cant(pp)} u</td>
                         <td class="fw-bold text-primary">{fmt_cant(inventario_actual)}</td>
@@ -769,7 +878,7 @@ def ia_analisis_gerencial():
 
                     salidas_15 = conteo_15_dias.get(alm.codigo, {}).get(prod.codigo, 0)
                     cmd_15 = salidas_15 / 15
-                    cmd_75_ant = (total_salidas_sku - salidas_15) / 75 if total_salidas_sku > salidas_15 else 0
+                    cmd_75_ant = (total_salidas_sku - salidas_15) / (dias_rotacion - 15) if (total_salidas_sku > salidas_15 and dias_rotacion > 15) else 0
                     if cmd_75_ant > 0 and ((cmd_15 - cmd_75_ant) / cmd_75_ant) > 0.30:
                         alertas_quiebre_lista.append(f"<li>🚀 <strong>Aceleración de Demanda en {alm.codigo}</strong>: SKU {prod.codigo} incrementó su rotación >30% en los últimos 15 días. Ajustar Punto de Pedido.</li>")
 
@@ -890,7 +999,7 @@ def ia_analisis_gerencial():
         <h6 class="fw-bold text-dark mt-3 mb-2"><b>4. COMPORTAMIENTO COMERCIAL Y VENDEDORES ESTRELLA</b></h6>
         {comercial_seguridad}
 
-        <h6 class="fw-bold text-dark mt-4 mb-2"><b>5. PLAN DE REABASTECIMIENTO NACIONAL PREVENTIVO A 30 DÍAS</b></h6>
+        <h6 class="fw-bold text-dark mt-4 mb-2"><b>5. PLAN DE REABASTECIMIENTO NACIONAL PREVENTIVO A {dias_proyeccion} DÍAS</b></h6>
         <div class="row g-2">
             {listado_detallado if listado_detallado else '<div class="col-12"><p class="text-muted font-monospace small text-center bg-white border p-3 rounded">✓ No se requiere emisión de órdenes de reabastecimiento. La red nacional cuenta con inventario suficiente.</p></div>'}
         </div>
@@ -1180,6 +1289,7 @@ def gestion_vendedor_vista():
 @admin_required
 def gestion_almacen_vista():
     if request.method == 'POST':
+        id_almacen = request.form.get('id_almacen')
         codigo_raw = request.form.get('codigo')
         nombre_raw = request.form.get('nombre')
         capacidad = request.form.get('capacidad_maxima', '10000')
@@ -1192,6 +1302,14 @@ def gestion_almacen_vista():
         except ValueError:
             capacidad_int = 10000
 
+        if id_almacen:
+            a = Almacen.query.get_or_404(int(id_almacen))
+            a.capacidad_maxima = capacidad_int
+            a.usuario_registro = current_user.username
+            db.session.commit()
+            flash(f"✓ Capacidad del almacén [{a.codigo}] actualizada a {capacidad_int} Unds.", "success")
+            return redirect(url_for('gestion_almacen_vista'))
+
         if not codigo or not nombre:
             flash("❌ El código y el nombre del almacén son campos obligatorios.", "danger")
             return redirect(url_for('gestion_almacen_vista'))
@@ -1201,7 +1319,7 @@ def gestion_almacen_vista():
             flash(f"❌ El código de almacén '{codigo}' ya existe en el maestro.", "danger")
             return redirect(url_for('gestion_almacen_vista'))
 
-        nuevo = Almacen(codigo=codigo, nombre=nombre, capacidad_maxima=capacidad_int)
+        nuevo = Almacen(codigo=codigo, nombre=nombre, capacidad_maxima=capacidad_int, usuario_registro=current_user.username)
         db.session.add(nuevo)
         db.session.commit()
         flash(f"✓ Almacén [{codigo}] guardado con éxito.", "success")
@@ -1251,7 +1369,7 @@ def eliminar_cliente_maestro(id):
     return redirect(url_for('gestion_cliente_vista'))
 
 # ========================================================
-# INTERFAZ DE PROCESAMIENTO COMPLETO: CARGA MASIVA EXCEL
+# CARGA MASIVA EXCEL
 # ========================================================
 @app.route('/operaciones/importar-excel', methods=['POST'])
 @login_required
@@ -1385,7 +1503,7 @@ def importar_excel():
     return redirect(url_for('index'))
 
 # ========================================================
-# EXPORTACIONES ADICIONALES Y TRAZABILIDAD
+# EXPORTACIONES ADICIONALES Y KARDEX
 # ========================================================
 @app.route('/operaciones/exportar-seleccion', methods=['POST'])
 @login_required
