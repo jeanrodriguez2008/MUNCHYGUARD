@@ -157,7 +157,7 @@ def operciones_lectura_required(roles_permitidos):
                 flash("⚠️ Restricción de Perfil: No tienes autorización para ejecutar esta acción.", "danger")
                 return redirect(url_for('index'))
             return f(*args, **kwargs)
-        return decorator
+        return decorated_function
     return decorator
 
 # ========================================================
