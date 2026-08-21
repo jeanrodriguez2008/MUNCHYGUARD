@@ -157,7 +157,7 @@ def operciones_lectura_required(roles_permitidos):
                 flash("⚠️ Restricción de Perfil: No tienes autorización para ejecutar esta acción.", "danger")
                 return redirect(url_for('index'))
             return f(*args, **kwargs)
-        return decorated_function
+        return decorator
     return decorator
 
 # ========================================================
@@ -237,26 +237,28 @@ def api_conciliacion_munchyproqr():
         data = request.get_json() or {}
         
         codigo_producto = str(data.get('codigo_producto') or '').strip().upper()
-        numero_lote = str(data.get('numero_lote') or '').strip().upper()
+        numero_lote = str(data.get('numero_lote') or 'SIN LOTE').strip().upper()
         fecha_venc_raw = str(data.get('fecha_vencimiento') or '').strip()
         cantidad = int(data.get('cantidad', 0))
         almacen_destino = str(data.get('almacen_destino') or 'ALM01').strip().upper()
         referencia_documento = str(data.get('referencia_documento') or 'PRO-QR').strip().upper()
         usuario_pro = str(data.get('usuario') or 'AlmacenistaProQR').strip()
 
-        if not codigo_producto or not numero_lote or cantidad <= 0:
-            return jsonify({'success': False, 'error': 'Datos incompletos o cantidad inválida.'}), 400
+        if not codigo_producto or cantidad <= 0:
+            return jsonify({'success': False, 'error': 'Datos incompletos: Código de producto y cantidad son obligatorios.'}), 400
 
-        # Formatear la fecha de YYYY-MM-DD a DD/MM/YYYY si viene en ISO
-        if "-" in fecha_venc_raw:
-            try:
-                fecha_vencimiento = datetime.strptime(fecha_venc_raw, "%Y-%m-%d").strftime("%d/%m/%Y")
-            except ValueError:
+        # Formatear la fecha a DD/MM/YYYY
+        fecha_vencimiento = "31/12/2099"
+        if fecha_venc_raw:
+            if "-" in fecha_venc_raw:
+                try:
+                    fecha_vencimiento = datetime.strptime(fecha_venc_raw, "%Y-%m-%d").strftime("%d/%m/%Y")
+                except ValueError:
+                    fecha_vencimiento = fecha_venc_raw
+            else:
                 fecha_vencimiento = fecha_venc_raw
-        else:
-            fecha_vencimiento = fecha_venc_raw
 
-        # Validar si el ticket ya se había registrado previamente en MunchyGuardPT
+        # Validar si el ticket ya se había registrado previamente
         mov_existente = MovimientoInventario.query.filter_by(referencia_documento=referencia_documento).first()
         if mov_existente:
             return jsonify({
@@ -276,20 +278,30 @@ def api_conciliacion_munchyproqr():
                 usuario_registro=f"PROQR:{usuario_pro}"
             )
             db.session.add(nuevo_prod)
-            db.session.commit()
+
+        # Asegurar la existencia del Almacén en el maestro de Almacenes
+        obj_almacen = Almacen.query.filter_by(codigo=almacen_destino).first()
+        if not obj_almacen:
+            obj_almacen = Almacen(
+                codigo=almacen_destino,
+                nombre=f"ALMACÉN {almacen_destino}",
+                capacidad_maxima=50000,
+                usuario_registro=f"PROQR:{usuario_pro}"
+            )
+            db.session.add(obj_almacen)
+
+        db.session.commit()
 
         # Validar capacidad disponible en el almacén de destino
-        obj_almacen = Almacen.query.filter_by(codigo=almacen_destino).first()
-        if obj_almacen:
-            saldos_actuales = obtener_saldos_por_lote()
-            ocupacion_actual = sum(s['cantidad'] for s in saldos_actuales if s['almacen'] == almacen_destino)
-            if (ocupacion_actual + cantidad) > obj_almacen.capacidad_maxima:
-                return jsonify({
-                    'success': False, 
-                    'error': f"Capacidad excedida en el Almacén {almacen_destino} (Límite: {obj_almacen.capacidad_maxima} unds)."
-                }), 400
+        saldos_actuales = obtener_saldos_por_lote()
+        ocupacion_actual = sum(s['cantidad'] for s in saldos_actuales if s['almacen'] == almacen_destino)
+        if (ocupacion_actual + cantidad) > obj_almacen.capacidad_maxima:
+            return jsonify({
+                'success': False, 
+                'error': f"Capacidad excedida en el Almacén {almacen_destino} (Límite: {obj_almacen.capacidad_maxima} unds, Ocupado: {ocupacion_actual} unds)."
+            }), 400
 
-        # Crear el movimiento de entrada en el Kardex de MunchyGuardPT
+        # Crear el movimiento de entrada en el Kardex
         id_unico = f"ING-PROQR-{codigo_producto}-{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
         nuevo_ingreso = MovimientoInventario(
             id_registro_unico=id_unico,
@@ -307,7 +319,7 @@ def api_conciliacion_munchyproqr():
         
         db.session.add(nuevo_ingreso)
 
-        # Registrar en la auditoría del sistema
+        # Registrar en auditoría
         log_auditoria = LogsAuditoria(
             usuario=f"PROQR:{usuario_pro}",
             rol="SISTEMA",
