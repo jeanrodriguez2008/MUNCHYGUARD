@@ -229,7 +229,7 @@ def obtener_saldos_por_lote():
     return inventario_disponible
 
 # ========================================================
-# ENDPOINT DE CONCILIACIÓN AUTOMÁTICA DESDE MUNCHYPROQR
+# ENDPOINT DE CONCILIACIÓN AUTOMÁTICA DESDE MUNCHYPRODQR
 # ========================================================
 @app.route('/api/v1/conciliacion/munchyproqr', methods=['POST'])
 def api_conciliacion_munchyproqr():
@@ -240,8 +240,12 @@ def api_conciliacion_munchyproqr():
         numero_lote = str(data.get('numero_lote') or 'SIN LOTE').strip().upper()
         fecha_venc_raw = str(data.get('fecha_vencimiento') or '').strip()
         cantidad = int(data.get('cantidad', 0))
-        almacen_destino = str(data.get('almacen_destino') or 'ALM01').strip().upper()
-        referencia_documento = str(data.get('referencia_documento') or 'PRO-QR').strip().upper()
+        
+        # Asignación por defecto según reglas operativas de Planta Maracay
+        almacen_origen = str(data.get('almacen_origen') or 'Gal-Morita').strip()
+        almacen_destino = str(data.get('almacen_destino') or 'Gal-MORII').strip()
+        
+        num_recibo_raw = str(data.get('referencia_documento') or data.get('numero_recibo') or '').strip().upper()
         usuario_pro = str(data.get('usuario') or 'AlmacenistaProQR').strip()
 
         if not codigo_producto or cantidad <= 0:
@@ -258,12 +262,15 @@ def api_conciliacion_munchyproqr():
             else:
                 fecha_vencimiento = fecha_venc_raw
 
-        # Validar si el ticket ya se había registrado previamente
+        # VALIDACIÓN PREVENTIVA DE DOCUMENTO / RECIBO
+        referencia_documento = num_recibo_raw if num_recibo_raw else f"REC-{numero_lote}"
+
+        # Validar si la conciliación ya se había registrado previamente
         mov_existente = MovimientoInventario.query.filter_by(referencia_documento=referencia_documento).first()
         if mov_existente:
             return jsonify({
                 'success': True,
-                'message': f'El ticket N° {referencia_documento} ya se encontraba conciliado en MunchyGuardPT.',
+                'message': f'El recibo/ticket N° {referencia_documento} ya se encontraba conciliado en MunchyGuardPT.',
                 'id_transaccion': mov_existente.id_registro_unico
             }), 200
 
@@ -279,7 +286,7 @@ def api_conciliacion_munchyproqr():
             )
             db.session.add(nuevo_prod)
 
-        # Asegurar la existencia del Almacén en el maestro de Almacenes
+        # Asegurar la existencia del Almacén Receptor en el maestro de Almacenes
         obj_almacen = Almacen.query.filter_by(codigo=almacen_destino).first()
         if not obj_almacen:
             obj_almacen = Almacen(
@@ -292,7 +299,7 @@ def api_conciliacion_munchyproqr():
 
         db.session.commit()
 
-        # Validar capacidad disponible en el almacén de destino
+        # Validar capacidad disponible en el almacén de destino (Gal-MORII)
         saldos_actuales = obtener_saldos_por_lote()
         ocupacion_actual = sum(s['cantidad'] for s in saldos_actuales if s['almacen'] == almacen_destino)
         if (ocupacion_actual + cantidad) > obj_almacen.capacidad_maxima:
@@ -308,7 +315,7 @@ def api_conciliacion_munchyproqr():
             tipo_operacion='ENTRADA',
             tipo_motivo='PRODUCCION INTERNA',
             codigo_producto=codigo_producto,
-            almacen_origen='PRODUCCION',
+            almacen_origen=almacen_origen,
             almacen_destino=almacen_destino,
             numero_lote=numero_lote,
             fecha_vencimiento=fecha_vencimiento,
@@ -324,7 +331,7 @@ def api_conciliacion_munchyproqr():
             usuario=f"PROQR:{usuario_pro}",
             rol="SISTEMA",
             modulo="CONCILIACION API",
-            accion_detallada=f"Entrada automática vía API MunchyProQR. Ticket: {referencia_documento}, SKU: {codigo_producto}, Cantidad: {cantidad} unds."
+            accion_detallada=f"Entrada automática vía API MunchyProQR. Recibo: {referencia_documento}, SKU: {codigo_producto}, Cantidad: {cantidad} unds, Origen: {almacen_origen}, Destino: {almacen_destino}."
         )
         db.session.add(log_auditoria)
 
@@ -332,7 +339,7 @@ def api_conciliacion_munchyproqr():
 
         return jsonify({
             'success': True, 
-            'message': f'✓ Conciliación exitosa. SKU {codigo_producto} ingresado a {almacen_destino}.',
+            'message': f'✓ Conciliación exitosa. SKU {codigo_producto} ingresado a {almacen_destino}. Recibo: {referencia_documento}',
             'id_transaccion': id_unico
         }), 200
 
