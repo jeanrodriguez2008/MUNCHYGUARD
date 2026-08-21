@@ -289,35 +289,37 @@ function detenerEscanerCamaraEntrada() {
    PARSER DE QR ACTUALIZADO (PROCESA LOS CAMPOS DEL QR EXTENDIDO)
    FORMATO: Codigo|Articulo|Lote|FechaVenc|Cantidad|NumRecibo|...
    ======================================================== */
+// Reemplazar la función procesarCadenaQREntrada en modal_entrada.html con esta versión tolerante:
 function procesarCadenaQREntrada(rawData) {
     if (!rawData) return;
     const partes = rawData.trim().split('|');
 
-    if (partes.length >= 5) {
-        const sku_qr = partes[0] ? partes[0].trim() : '';
-        const desc_qr = partes[1] ? partes[1].trim() : '';
-        const lote_qr = partes[2] ? partes[2].trim() : '';
-        const venc_qr = partes[3] ? partes[3].trim() : '';
-        const cant_qr = partes[4] ? partes[4].trim() : '';
-        const recibo_qr = partes[5] ? partes[5].trim() : '';
+    // Tolerancia flexible: acepta cadenas desde 4 hasta 6+ parámetros
+    if (partes.length >= 4) {
+        const sku_qr     = partes[0] ? partes[0].trim() : '';
+        const desc_qr    = partes[1] ? partes[1].trim() : '';
+        const lote_qr    = partes[2] ? partes[2].trim() : '';
+        const venc_qr    = partes[3] ? partes[3].trim() : '';
+        const cant_qr    = partes[4] ? partes[4].trim() : '';
+        const recibo_qr  = partes[5] ? partes[5].trim() : '';
 
-        // 1. Asignar SKU y actualizar visual
+        // 1. Cargar SKU y refrescar banner visual
         document.getElementById('codigo_producto_input').value = sku_qr;
         document.getElementById('v10_busqueda_producto').value = `${sku_qr} - ${desc_qr}`;
         document.getElementById('visual_sku').innerText = sku_qr;
         document.getElementById('visual_articulo').innerText = desc_qr;
 
-        // 2. Asignar Lote
+        // 2. Asignar Lote de Producción
         document.getElementById('input_lote_entrada').value = lote_qr.toUpperCase();
 
-        // 3. Asignar Fecha de Vencimiento (Convertir DD/MM/AAAA -> YYYY-MM-DD)
+        // 3. Normalizar Fecha de Vencimiento (DD/MM/AAAA -> YYYY-MM-DD)
         if (venc_qr) {
             if (venc_qr.includes('/')) {
-                const subpartes = venc_qr.split('/');
-                if (subpartes.length === 3) {
-                    const dia = subpartes[0].padStart(2, '0');
-                    const mes = subpartes[1].padStart(2, '0');
-                    const anio = subpartes[2].length === 2 ? '20' + subpartes[2] : subpartes[2];
+                const sub = venc_qr.split('/');
+                if (sub.length === 3) {
+                    const dia = sub[0].padStart(2, '0');
+                    const mes = sub[1].padStart(2, '0');
+                    const anio = sub[2].length === 2 ? '20' + sub[2] : sub[2];
                     document.getElementById('input_venc_entrada').value = `${anio}-${mes}-${dia}`;
                 }
             } else {
@@ -325,19 +327,13 @@ function procesarCadenaQREntrada(rawData) {
             }
         }
 
-        // 4. Asignar Cantidad Recibida
-        if (cant_qr) {
-            document.getElementById('input_cant_entrada').value = cant_qr;
-        }
-
-        // 5. Asignar Número de Recibo como Referencia
-        if (recibo_qr) {
-            document.getElementById('input_ref_entrada').value = recibo_qr.toUpperCase();
-        }
+        // 4. Cantidad y Referencia opcionales
+        if (cant_qr) document.getElementById('input_cant_entrada').value = cant_qr;
+        if (recibo_qr) document.getElementById('input_ref_entrada').value = recibo_qr.toUpperCase();
 
         document.getElementById('input_cant_entrada').focus();
     } else {
-        alert("⚠️ El código QR escaneado no cumple con el formato esperado.");
+        alert("⚠️ El código QR de MunchyProdQR no posee la estructura mínima requerida (Código|Descripción|Lote|Vencimiento)");
     }
 }
 
