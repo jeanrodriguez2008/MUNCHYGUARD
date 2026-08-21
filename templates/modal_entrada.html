@@ -294,7 +294,7 @@ function procesarCadenaQREntrada(rawData) {
     if (!rawData) return;
     const partes = rawData.trim().split('|');
 
-    // Tolerancia flexible: acepta cadenas desde 4 hasta 6+ parámetros
+    // Estructura desde MunchyProdQR: Código | Descripción | Lote | Vencimiento | Cantidad | [Opcional: NumRecibo]
     if (partes.length >= 4) {
         const sku_qr     = partes[0] ? partes[0].trim() : '';
         const desc_qr    = partes[1] ? partes[1].trim() : '';
@@ -303,16 +303,27 @@ function procesarCadenaQREntrada(rawData) {
         const cant_qr    = partes[4] ? partes[4].trim() : '';
         const recibo_qr  = partes[5] ? partes[5].trim() : '';
 
-        // 1. Cargar SKU y refrescar banner visual
+        // 1. Asignación Automática de Reglas por Defecto para Producción Interna
+        const selectMotivo = document.getElementById('v10_motivo_entrada');
+        if (selectMotivo) {
+            selectMotivo.value = 'PRODUCCION';
+            evaluarCamposDinamicosEntrada(); // Muestra Origen y Destino en la interfaz
+        }
+
+        // 2. Asignación Automática de Gal-Morita (Origen) y Gal-MORII (Destino)
+        seleccionarDatoCustom('select_entrada_origen', 'busqueda_entrada_origen', 'Gal-Morita', 'Gal-Morita', 'dropdown_entrada_origen');
+        seleccionarDatoCustom('select_entrada_destino', 'busqueda_entrada_destino', 'Gal-MORII', 'Gal-MORII', 'dropdown_entrada_destino');
+
+        // 3. Asignación de SKU y Banner Visual
         document.getElementById('codigo_producto_input').value = sku_qr;
         document.getElementById('v10_busqueda_producto').value = `${sku_qr} - ${desc_qr}`;
         document.getElementById('visual_sku').innerText = sku_qr;
         document.getElementById('visual_articulo').innerText = desc_qr;
 
-        // 2. Asignar Lote de Producción
+        // 4. Asignación de Lote
         document.getElementById('input_lote_entrada').value = lote_qr.toUpperCase();
 
-        // 3. Normalizar Fecha de Vencimiento (DD/MM/AAAA -> YYYY-MM-DD)
+        // 5. Formateo de Fecha de Vencimiento (DD/MM/AAAA -> YYYY-MM-DD)
         if (venc_qr) {
             if (venc_qr.includes('/')) {
                 const sub = venc_qr.split('/');
@@ -327,13 +338,20 @@ function procesarCadenaQREntrada(rawData) {
             }
         }
 
-        // 4. Cantidad y Referencia opcionales
+        // 6. Cantidad Recibida
         if (cant_qr) document.getElementById('input_cant_entrada').value = cant_qr;
-        if (recibo_qr) document.getElementById('input_ref_entrada').value = recibo_qr.toUpperCase();
+
+        // 7. VALIDACIÓN PREVENTIVA DEL DOCUMENTO: Asigna el número de recibo exacto
+        if (recibo_qr) {
+            document.getElementById('input_ref_entrada').value = recibo_qr.toUpperCase();
+        } else {
+            // Si el QR no trae recibo explícito, genera el número de recibo basado en el lote
+            document.getElementById('input_ref_entrada').value = `REC-${lote_qr.toUpperCase()}`;
+        }
 
         document.getElementById('input_cant_entrada').focus();
     } else {
-        alert("⚠️ El código QR de MunchyProdQR no posee la estructura mínima requerida (Código|Descripción|Lote|Vencimiento)");
+        alert("⚠️ El código QR de MunchyProdQR no cumple con el formato esperado (Código|Descripción|Lote|Vencimiento)");
     }
 }
 
