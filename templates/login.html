@@ -85,8 +85,11 @@
 
 <div class="login-card">
     <div class="text-center">
-        <!-- Logo Local de Alimentos Munchy -->
-        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Munchy Logo" class="brand-logo">
+        <!-- Logo Local con Respaldo Automático si no encuentra la imagen principal -->
+        <img src="{{ url_for('static', filename='img/logo.png') }}" 
+             onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/logo2.png') }}';" 
+             alt="Munchy Logo" 
+             class="brand-logo">
         <div class="subtitle">Sistema Inteligente de Control de Inventario</div>
     </div>
 
