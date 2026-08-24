@@ -3,13 +3,13 @@
   "name": "MunchyGuard V20 - Control de Inventario",
   "icons": [
     {
-      "src": "/static/img/logo2.png",
+      "src": "/static/logo2.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/static/img/logo2.png",
+      "src": "/static/logo2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
