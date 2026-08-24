@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, UTC, time
 from functools import wraps
 import pandas as pd
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
@@ -36,6 +36,14 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+
+# ========================================================
+# RUTA DE FAVICON NATIVO PARA PWA Y ESCRITORIO WINDOWS
+# ========================================================
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'logo2.png', mimetype='image/png')
 
 # ========================================================
 # MODELOS DE LA BASE DE DATOS (MUNCHYGUARD V20 AUDIT)
